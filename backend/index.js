@@ -5,10 +5,11 @@ const mysql = require('mysql2');
 const PORT = process.env.PORT || 5000;
 const app = express();
 const db = mysql.createConnection({
-    host: process.env.MYSQLHOST,
-    user: process.env.MYSQLUSER,
-    password: process.env.MYSQLPASSWORD,
-    database: process.env.MYSQLDATABASE
+    host: process.env.MYSQLHOST,      // <- Railway proporciona esto
+    user: process.env.MYSQLUSER,      // <- Railway proporciona esto
+    password: process.env.MYSQLPASSWORD, // <- Railway proporciona esto
+    database: process.env.MYSQLDATABASE, // <- Railway proporciona esto
+    port: process.env.MYSQLPORT || 3306  // <- Railway proporciona esto
 });
 
 
