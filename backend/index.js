@@ -1,17 +1,15 @@
 require('dotenv').config();
-if (!process.env.DATABASE_URL) {
-    console.error("❌ ERROR: La variable DATABASE_URL no está definida.");
-    process.exit(1);
-} else {
-    console.log("✅ DATABASE_URL detectada:", process.env.DATABASE_URL);
-}
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2');
 const PORT = process.env.PORT || 5000;
 const app = express();
-const db = mysql.createConnection(process.env.DATABASE_URL);
-
+const db = mysql.createConnection({
+    host: process.env.MYSQLHOST,
+    user: process.env.MYSQLUSER,
+    password: process.env.MYSQLPASSWORD,
+    database: process.env.MYSQLDATABASE
+});
 
 
 app.use(cors());
