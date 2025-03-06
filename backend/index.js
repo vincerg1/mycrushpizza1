@@ -4,6 +4,15 @@ const cors = require('cors');
 const mysql = require('mysql2');
 const PORT = process.env.PORT || 5000;
 const app = express();
+
+
+console.log("🔍 Verificando variables de entorno en Railway:");
+console.log("MYSQLHOST:", process.env.MYSQLHOST);
+console.log("MYSQLUSER:", process.env.MYSQLUSER);
+console.log("MYSQLDATABASE:", process.env.MYSQLDATABASE);
+console.log("MYSQLPORT:", process.env.MYSQLPORT);
+
+
 const db = mysql.createConnection({
     host: process.env.MYSQLHOST,
     user: process.env.MYSQLUSER,
