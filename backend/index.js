@@ -7,13 +7,21 @@ const app = express();
 
 
 console.log("🔍 Verificando variables de entorno en Railway:");
-console.log("DATABASE_URL:", process.env.DATABASE_URL);
+console.log("DATABASE_URL:", process.env.MYSQL_URL);
 
-const db = mysql.createConnection(process.env.DATABASE_URL);
-
+const connectionString = process.env.MYSQL_URL;
+const dbConfig = new URL(connectionString);
+const db = mysql.createConnection({
+    host: dbConfig.hostname,
+    user: dbConfig.username,
+    password: dbConfig.password,
+    database: dbConfig.pathname.replace("/", ""),
+    port: dbConfig.port
+});
 
 app.use(cors());
 app.use(express.json());
+
 db.connect(err => {
     if (err) {
         console.error('❌ Error conectando a MySQL:', err);
@@ -21,8 +29,9 @@ db.connect(err => {
     }
     console.log('✅ Conectado a MySQL');
 });
+
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en ${PORT}`);
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
 
 
