@@ -11,6 +11,7 @@ console.log("DATABASE_URL:", process.env.MYSQL_URL);
 
 const connectionString = process.env.MYSQL_URL;
 const dbConfig = new URL(connectionString);
+
 const db = mysql.createConnection({
     host: dbConfig.hostname,
     user: dbConfig.username,
