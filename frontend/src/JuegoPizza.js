@@ -19,7 +19,7 @@ function JuegoPizza() {
     const [shakeGanador, setShakeGanador] = useState(false);
 
     useEffect(() => {
-        axios.get("http://localhost:5000/ganador")
+        axios.get("${process.env.REACT_APP_BACKEND_URL}/ganador")
             .then(res => setNumeroGanador(res.data.numeroGanador))
             .catch(err => console.error("Error:", err));
     }, []);
@@ -28,7 +28,7 @@ function JuegoPizza() {
         if (intentosRestantes === 0) return;
 
         try {
-            const res = await axios.post("http://localhost:5000/intentar");
+            const res = await axios.post("${process.env.REACT_APP_BACKEND_URL}/intentar");
             setIntento(res.data.intento);
             setEsGanador(res.data.esGanador);
             setIntentosRestantes(prev => prev - 1);
@@ -55,7 +55,7 @@ function JuegoPizza() {
     const reclamarPizza = async () => {
         if (!contacto) return alert("Por favor, ingresa un número de contacto.");
         try {
-            await axios.post("http://localhost:5000/reclamar", { contacto });
+            await axios.post("${process.env.REACT_APP_BACKEND_URL}/reclamar", { contacto });
             alert("Premio reclamado con éxito 🎉");
             setModalAbierto(false);
         } catch (error) {
