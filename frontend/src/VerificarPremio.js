@@ -19,7 +19,7 @@ function VerificacionPremio() {
     }, []);
 
     const cargarListaGanadores = () => {
-        axios.get("http://localhost:5000/lista-ganadores")
+        axios.get(`${process.env.REACT_APP_BACKEND_URL}/lista-ganadores`)
             .then(res => setNumerosGanadores(res.data))
             .catch(err => console.error("Error:", err));
     };
@@ -28,7 +28,7 @@ function VerificacionPremio() {
         if (!numeroSeleccionado) return alert("Selecciona un número ganador.");
 
         try {
-            const res = await axios.get(`http://localhost:5000/verificar/${numeroSeleccionado}`);
+            const res = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/verificar/${numeroSeleccionado}`);
             setEstadoPremio(res.data);
         } catch (error) {
             console.error("Error:", error);
@@ -38,7 +38,7 @@ function VerificacionPremio() {
 
     const marcarComoEntregado = async () => {
         try {
-            await axios.post("http://localhost:5000/actualizar-entrega", { numero: numeroSeleccionado });
+            await axios.post(`${process.env.REACT_APP_BACKEND_URL}/actualizar-entrega`, { numero: numeroSeleccionado });
             alert("Premio marcado como entregado ✔");
             setEstadoPremio(prev => ({ ...prev, entregado: 1 }));
         } catch (error) {
