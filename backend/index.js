@@ -9,15 +9,12 @@ const app = express();
 console.log("🔍 Verificando variables de entorno en Railway:");
 console.log("DATABASE_URL:", process.env.MYSQL_URL);
 
-const connectionString = process.env.MYSQL_URL;
-const dbConfig = new URL(connectionString);
-
 const db = mysql.createConnection({
-    host: dbConfig.hostname,
-    user: dbConfig.username,
-    password: dbConfig.password,
-    database: dbConfig.pathname.replace("/", ""),
-    port: dbConfig.port
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT
 });
 
 app.use(cors());
