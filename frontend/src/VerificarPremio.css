@@ -1,6 +1,6 @@
 .verificacion-container {
     text-align: center;
-    margin-top: 100px; /* Se redujo el margen superior */
+    margin-top: 50px; /* Se redujo el margen superior */
     background: hsl(43, 79%, 63%);
     padding: 20px;
     border-radius: 10px;
@@ -11,9 +11,11 @@
 }
 .verificacion-container select,
 .verificacion-container button {
-    margin-top: 10px;
     padding: 10px;
     font-size: 16px;
+    display: block;        
+    margin: 0 auto;       
+    margin-top: 10px;      
 }
 .estado-premio {
     margin-top: 20px;
@@ -33,6 +35,21 @@
 }
 .boton-verificacion:hover {
     background: #45a049;
+}
+.login-container {
+    /* Flex para alinear verticalmente */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem; /* Espacio vertical entre elementos */
+}
+.login-container input {
+    display: block; /* Asegura que no se alinee en línea */
+    margin-top: 1rem; /* Ajusta el espacio arriba */
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
 }
 .login-container h2{
     font-size: 30px;
@@ -75,4 +92,16 @@
 }
 .boton-salir:hover {
     background: darkred;
+}
+.pagina-login {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.logo-externo {
+    width: 120px; /* Ajusta el tamaño según lo necesites */
+    height: auto;
+    margin-bottom: 20px; /* Espacio entre el logo y el formulario */
+    margin-top: 5rem;
 }

@@ -18,6 +18,9 @@ function JuegoPizza() {
     const [contacto, setContacto] = useState("");
     const [shakeGanador, setShakeGanador] = useState(false);
 
+
+    console.log("Backend URL en React:", process.env.REACT_APP_BACKEND_URL);
+
     useEffect(() => {
         axios.get(`${process.env.REACT_APP_BACKEND_URL}/ganador`)
             .then(res => setNumeroGanador(res.data.numeroGanador))

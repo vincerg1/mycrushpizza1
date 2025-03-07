@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "../src/VerificarPremio.css";
+import logo from "../src/logo/pizza-box-top-view-02.png";
 
 function VerificacionPremio() {
     const [numerosGanadores, setNumerosGanadores] = useState([]);
@@ -67,53 +68,85 @@ function VerificacionPremio() {
     /*pendiete con esta pagina*/ 
 
     return (
-        <div className="verificacion-container">
+        <div className="pagina-login">
+          {/* Logo fuera del formulario */}
+          
+    
+          <div className="verificacion-container">
             {!autenticado ? (
-                <div className="login-container">
-                    <h2>🔒 Ingreso de Administrador</h2>
-                    <input
-                        type="password"
-                        placeholder="Ingrese la clave"
-                        value={clave}
-                        onChange={(e) => setClave(e.target.value)}
-                    />
-                    <button className="boton-ingresar" onClick={manejarLogin}>Ingresar</button>
-                </div>
+              <div className="login-container">
+                <h2>🔒 Ingreso de Administrador</h2>
+                <input
+                  type="password"
+                  placeholder="Ingrese la clave"
+                  value={clave}
+                  onChange={(e) => setClave(e.target.value)}
+                />
+                <button className="boton-ingresar" onClick={manejarLogin}>
+                  Ingresar
+                </button>
+              </div>
             ) : (
-                <>
-                    <div className="header-admin">
-                        <h1>Verificación de Premios</h1>
-                        <button className="boton-salir" onClick={manejarLogout}>Salir</button>
-                    </div>
-
-                    <label>Selecciona un número ganador:</label>
-                    <select value={numeroSeleccionado} onChange={(e) => setNumeroSeleccionado(e.target.value)}>
-                        <option value="">-- Seleccionar --</option>
-                        {numerosGanadores.map(num => (
-                            <option key={num.id} value={num.numero}>{num.numero}</option>
-                        ))}
-                    </select>
-
-                    <button className="boton-verificar" onClick={verificarPremio}>Consultar</button>
-
-                    {estadoPremio && (
-                        <div className="estado-premio">
-                            <p><strong>Número:</strong> {estadoPremio.numero}</p>
-                            <p><strong>Contacto:</strong> {estadoPremio.contacto || "No disponible"}</p>
-                            <p><strong>Reclamado:</strong> {estadoPremio.reclamado ? "Sí" : "No"}</p>
-                            <p><strong>Entregado:</strong> {estadoPremio.entregado ? "Sí" : "No"}</p>
-
-                            {!estadoPremio.entregado && (
-                                <button className="boton-entregar" onClick={marcarComoEntregado}>
-                                    ✅ Marcar como Entregado
-                                </button>
-                            )}
-                        </div>
+              <>
+                <div className="header-admin">
+                  <h1>Verificación de Premios</h1>
+                  <button className="boton-salir" onClick={manejarLogout}>
+                    Salir
+                  </button>
+                </div>
+    
+                <label>Selecciona un número ganador:</label>
+                <select
+                  value={numeroSeleccionado}
+                  onChange={(e) => setNumeroSeleccionado(e.target.value)}
+                >
+                  <option value="">-- Seleccionar --</option>
+                  {numerosGanadores.map((num) => (
+                    <option key={num.id} value={num.numero}>
+                      {num.numero}
+                    </option>
+                  ))}
+                </select>
+    
+                <button className="boton-verificar" onClick={verificarPremio}>
+                  Consultar
+                </button>
+    
+                {estadoPremio && (
+                  <div className="estado-premio">
+                    <p>
+                      <strong>Número:</strong> {estadoPremio.numero}
+                    </p>
+                    <p>
+                      <strong>Contacto:</strong> {estadoPremio.contacto || "No disponible"}
+                    </p>
+                    <p>
+                      <strong>Reclamado:</strong> {estadoPremio.reclamado ? "Sí" : "No"}
+                    </p>
+                    <p>
+                      <strong>Entregado:</strong> {estadoPremio.entregado ? "Sí" : "No"}
+                    </p>
+    
+                    {!estadoPremio.entregado && (
+                      <button className="boton-entregar" onClick={marcarComoEntregado}>
+                        ✅ Marcar como Entregado
+                      </button>
                     )}
-                </>
+                  </div>
+                )}
+              </>
             )}
+            
+          </div>
+          <img src={logo} alt="Logo de MyCrushPizza" className="logo-externo" />
         </div>
-    );
-}
+      );
+    }
+
+   
+
+
+
+
 
 export default VerificacionPremio;
