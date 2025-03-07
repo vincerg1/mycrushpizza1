@@ -64,6 +64,8 @@ function VerificacionPremio() {
         setEstadoPremio(null);
     };
 
+    /*pendiete con esta pagina*/ 
+
     return (
         <div className="verificacion-container">
             {!autenticado ? (
