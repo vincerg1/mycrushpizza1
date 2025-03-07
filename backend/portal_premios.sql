@@ -18,6 +18,7 @@
 --
 -- Table structure for table `ganador`
 --
+USE portal_premios;
 
 DROP TABLE IF EXISTS `ganador`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
