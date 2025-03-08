@@ -27,7 +27,6 @@ db.connect(err => {
     }
     console.log('✅ Conectado a MySQL');
 });
-
 app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
@@ -55,14 +54,17 @@ app.get('/verificar/:numero', (req, res) => {
 });
 app.get('/ganador', (req, res) => {
     db.query("SELECT numero FROM ganador ORDER BY id DESC LIMIT 1", (err, result) => {
-        if (err) return res.status(500).json(err);
-
-        if (result.length > 0) {
-            res.json({ numeroGanador: result[0].numero });
-        } else {
-            res.status(400).json({ message: 'No hay número ganador generado aún' });
+        if (err) {
+          console.error("Error en /ganador:", err);  // Aquí sí se imprime en consola
+          return res.status(500).json(err);          // Luego devuelves la respuesta
         }
-    });
+      
+        if (result.length > 0) {
+          res.json({ numeroGanador: result[0].numero });
+        } else {
+          res.status(400).json({ message: 'No hay número ganador generado aún' });
+        }
+      });
 });
 app.post('/generar-ganador', (req, res) => {
     const numeroGanador = Math.floor(Math.random() * 900) + 100; // Ahora de 100 a 999

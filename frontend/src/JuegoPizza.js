@@ -25,6 +25,7 @@ function JuegoPizza() {
         axios.get(`${process.env.REACT_APP_BACKEND_URL}/ganador`)
             .then(res => setNumeroGanador(res.data.numeroGanador))
             .catch(err => console.error("Error:", err));
+            
     }, []);
 
     const intentarGanar = async () => {
