@@ -31,7 +31,7 @@ app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
 
-/*index.js*/
+/*index.js1*/
 app.get('/', (req, res) => {
     res.send('Servidor funcionando correctamente 🚀');
 });
