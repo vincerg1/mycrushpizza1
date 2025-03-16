@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./App.css";
-import logo from "../src/logo/pizza-box-top-view-01.png";
+import logo from "../src/logo/pizza-box-top-view-15";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faInstagram, faWhatsapp,  } from "@fortawesome/free-brands-svg-icons";
 import { faMapPin } from '@fortawesome/free-solid-svg-icons'; 
