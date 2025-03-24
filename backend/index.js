@@ -135,7 +135,7 @@ app.post('/actualizar-entrega', (req, res) => {
 });
 
 
-// intetar prueba w// 
+// intetar prueba web2// 
 // app.post('/intentar', (req, res) => {
 //     db.query("SELECT numero FROM ganador ORDER BY id DESC LIMIT 1", (err, result) => {
 //         if (err) return res.status(500).json(err);
