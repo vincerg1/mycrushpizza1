@@ -4,7 +4,7 @@ import "./App.css";
 import logo from "../src/logo/LogoMyCrushPizza.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
-import { faMapPin } from "@fortawesome/free-solid-svg-icons";
+
 import Confetti from "react-confetti";
 
 /*  URL a la que se redirige tras agotar los 3 intentos  */
