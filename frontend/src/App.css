@@ -1,4 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Rubik+Puddles&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Chewy&family=Fredoka:wght@700&display=swap');
 
 body {
   background: url("../src/img/kiwihug-bPaRBSuvRPA-unsplash.jpg");
@@ -40,7 +41,7 @@ h1 {
   font-weight: 900;
 }
 h2 {
-  font-family: "Arial Black", sans-serif;
+  font-family: "Chewy", cursive;
   font-size: 2.5rem;
   font-weight: bold;
   color: #4c3d1d;
@@ -88,19 +89,19 @@ h2 {
   font-size: 20px;
   font-weight: bold;
   border-radius: 8px;
-  background: linear-gradient(180deg, #009FE3 0%, #1e5bc6 100%);
-  color: white;
+  background: linear-gradient(180deg, #efd216 0%, #d6e507 100%);
+  color: rgb(255, 175, 3);
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 3px 3px 0px #1a4fa0, 
+  box-shadow: 3px 3px 0px #ffc400, 
               -6px -6px 12px rgba(0, 0, 0, 0.3);
   transform: scale(1);
 }
 .boton-intentar:hover {
-  background: linear-gradient(180deg,  #E71D73 0%, #8c0e84 100%);
+  background: linear-gradient(180deg, #c74834 0%, #737b04 100%);
   transform: scale(1.1);
-  box-shadow: 0px 6px 0px #750b64, 
+  box-shadow: 0px 6px 0px #d2ce03, 
               0px 8px 14px rgba(0, 0, 0, 0.4);
 }
 .boton-intentar:active {
