@@ -4,6 +4,8 @@ import "./App.css";
 import logo from "../src/logo/LogoMyCrushPizza.png";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
+import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
+
 
 import Confetti from "react-confetti";
 
@@ -147,7 +149,7 @@ function JuegoPizza() {
       <footer className="footer">
         <div className="social-icons">
           <a
-            href="https://wa.me/659087766"
+            href="https://wa.me/694301433"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -162,14 +164,10 @@ function JuegoPizza() {
             <FontAwesomeIcon icon={faTiktok} className="icon" />
           </a>
 
-          {/* Si quieres volver a mostrar el pin de ubicación, descomenta ↓ */}
-          {/* <a
-            href="https://www.google.com/maps/d/viewer?mid=1Fws6c7B9qtPUoQXkItl6dnpKLO5JwU4&ll=42.33589135768632%2C-7.856552021396941&z=15"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <FontAwesomeIcon icon={faMapPin} className="icon" />
-          </a> */}
+        
+          <a href="tel:694301433" className="call-link">
+            <FontAwesomeIcon icon={faMobileScreenButton} className="icon" />
+          </a>
         </div>
 
         <p>
