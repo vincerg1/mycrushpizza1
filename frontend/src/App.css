@@ -153,6 +153,12 @@ h2 {
     transform: translate(-50%, -160%) scale(1.15); /* Mayor elevación */
   }
 }
+.toast-numero {
+  font-family: 'Arial Black', Arial, sans-serif;
+  font-size: 4rem; /* Ajusta a lo que se vea bien */
+  color: #000;     /* Negro intenso para máxima visibilidad */
+  display: inline-block;
+}
 .footer {
   width: 100%;
   margin-top: 80px;

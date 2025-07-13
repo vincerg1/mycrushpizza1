@@ -123,7 +123,9 @@ function JuegoPizza() {
 
       {showToast && (
         <div className="toast-bubble">
-          <p>Tu número: {intento?.toString().padStart(3, "0")}</p>
+          <span className="toast-numero">
+            {intento?.toString().padStart(3, "0")}
+          </span>
           <p>{mensaje}</p>
         </div>
       )}
