@@ -148,37 +148,38 @@ function JuegoPizza() {
         </div>
       )}
 
-      <footer className="footer">
-        <div className="social-icons">
-          <a
-            href="https://wa.me/34694301433"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="WhatsApp Chat"
-          >
-            <FontAwesomeIcon icon={faWhatsapp} className="icon" />
-          </a>
+<footer className="footer">
+  <p className="info-text">¡Más información aquí!</p>
 
-          <a
-            href="https://www.tiktok.com/@mycrushpizza1?_t=ZN-8whjKa8Moxq&_r=1"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <FontAwesomeIcon icon={faTiktok} className="icon" />
-          </a>
+  <div className="social-icons">
+    <a
+      href="https://wa.me/34694301433"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="WhatsApp Chat"
+    >
+      <FontAwesomeIcon icon={faWhatsapp} className="icon" />
+    </a>
 
-        
-          <a href="tel:694301433" className="call-link">
-            <FontAwesomeIcon icon={faMobileScreenButton} className="icon" />
-          </a>
-        </div>
+    <a
+      href="https://www.tiktok.com/@mycrushpizza1?_t=ZN-8whjKa8Moxq&_r=1"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <FontAwesomeIcon icon={faTiktok} className="icon" />
+    </a>
 
-        <p>
-          © {new Date().getFullYear()} MyCrushPizzaSL.
-          <br />
-          Todos los derechos reservados.
-        </p>
-      </footer>
+    <a href="tel:694301433" className="call-link">
+      <FontAwesomeIcon icon={faMobileScreenButton} className="icon" />
+    </a>
+  </div>
+
+  <p>
+    © {new Date().getFullYear()} MyCrushPizzaSL.
+    <br />
+    Todos los derechos reservados.
+  </p>
+</footer>
     </div>
   );
 }

@@ -239,3 +239,21 @@ h2 {
 .boton-reclamar:hover {
   background-color: #d4411e;
 }
+.footer .info-text {
+  animation: fadePulse 2s ease-in-out infinite;
+  margin-bottom: 1rem;  /* Espacio respecto a los iconos */
+  font-weight: bold;
+  text-align: center;
+}
+
+@keyframes fadePulse {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
