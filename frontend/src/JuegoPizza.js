@@ -151,9 +151,10 @@ function JuegoPizza() {
       <footer className="footer">
         <div className="social-icons">
           <a
-            href="https://wa.me/694301433"
+            href="https://wa.me/34694301433"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="WhatsApp Chat"
           >
             <FontAwesomeIcon icon={faWhatsapp} className="icon" />
           </a>
