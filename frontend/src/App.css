@@ -361,3 +361,55 @@ h2 {
   background: #555;
   color: #fff;
 }
+@keyframes pulse-dual {
+  0% {
+    text-shadow: 0 0 0px #4285f4, 0 0 0px #f92672;
+    transform: scale(1);
+  }
+  50% {
+    text-shadow: 0 0 8px #4285f4, 0 0 12px #f92672;
+    transform: scale(1.05);
+  }
+  100% {
+    text-shadow: 0 0 0px #4285f4, 0 0 0px #f92672;
+    transform: scale(1);
+  }
+}
+
+.pulse-heading {
+  animation: pulse-dual 1.8s infinite ease-in-out;
+  color: #f92672;
+}
+
+.shine-button {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(to right, #f92672, #4285f4);
+  color: white;
+  font-weight: bold;
+  transition: transform 0.2s;
+}
+
+.shine-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 50%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  transform: skewX(-20deg);
+  animation: shine 2s infinite;
+}
+
+@keyframes shine {
+  0% {
+    left: -75%;
+  }
+  50% {
+    left: 125%;
+  }
+  100% {
+    left: 125%;
+  }
+}

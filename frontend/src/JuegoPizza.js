@@ -114,7 +114,7 @@ export default function JuegoPizza() {
       {showTerms && (
         <div className="overlay">
           <div className="modal-legal">
-            <h2>Antes de jugar</h2>
+            <h2 className="pulse-heading">Antes de jugar</h2>
             <p>
               Para participar debes ser mayor de 18 años y aceptar nuestras&nbsp;
               <a href="/bases.html" target="_blank" rel="noopener noreferrer">Bases Legales</a>&nbsp; y&nbsp;
@@ -157,7 +157,7 @@ export default function JuegoPizza() {
         </div>
       )}
 
-      <button className="boton-intentar" onClick={intentarGanar} disabled={intentosRestantes === 0 || showTerms}>
+      <button className="boton-intentar shine-button" onClick={intentarGanar} disabled={intentosRestantes === 0 || showTerms}>
         Suerte! =) 🎲🍕
       </button>
 
