@@ -14,6 +14,61 @@ const mysql   = require('mysql2/promise');
 const NODE_ENV  = process.env.NODE_ENV || 'development';
 const PORT      = process.env.PORT     || 8080;
 const FORCE_WIN = process.env.FORCE_WIN === '1';  // <-- modo prueba: ganar siempre
+const nodemailer = require('nodemailer');
+const LOCK_MINUTES = Number(process.env.LOCK_MINUTES || 24 * 60); // por defecto 24h
+
+const mailer = (() => {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+  const secure = process.env.SMTP_SECURE === '1';
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!host || !user || !pass) {
+    console.log('✉️  Email desactivado (faltan variables SMTP).');
+    return null;
+  }
+
+  const transporter = nodemailer.createTransport({
+    host, port, secure, auth: { user, pass }
+  });
+
+  async function notifyWin({ numeroGanador, intento, ip, lockedUntil }) {
+    try {
+      const to = (process.env.MAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (!to.length) return;
+
+      const subject = `🍕 ¡Hay ganador! Nº ${numeroGanador}`;
+      const text = `Se acertó el número ${numeroGanador}.
+Intento: ${intento}
+IP: ${ip || '-'}
+Bloqueo hasta (UTC): ${lockedUntil || '-'}
+Fecha servidor (UTC): ${new Date().toISOString()}`;
+
+      const html = `
+        <h2>🍕 ¡Hay ganador!</h2>
+        <p><strong>Número ganador:</strong> ${numeroGanador}</p>
+        <p><strong>Intento:</strong> ${intento}</p>
+        <p><strong>IP:</strong> ${ip || '-'}</p>
+        <p><strong>Bloqueo hasta (UTC):</strong> ${lockedUntil || '-'}</p>
+        <p style="opacity:.7">Fecha servidor (UTC): ${new Date().toISOString()}</p>
+      `;
+
+      await transporter.sendMail({
+        from: process.env.MAIL_FROM || 'noreply@local',
+        to,
+        subject,
+        text,
+        html
+      });
+      console.log('✉️  Email de ganador enviado a:', to.join(', '));
+    } catch (err) {
+      console.warn('⚠️  Falló el envío de email:', err.message);
+    }
+  }
+
+  return { notifyWin };
+})();
 
 /*-------------- 1. CONFIGURACIÓN DE LA BD -------------------------*/
 const cfg = {
@@ -85,18 +140,20 @@ async function getLock() {
   return st ? st.lock_until : null;
 }
 
-async function setLock24h() {
-  await db.query(
+async function setLock(minutes = LOCK_MINUTES) {
+  const [r] = await db.query(
     `UPDATE juego_estado
-       SET lock_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
-     WHERE id = 1`
+       SET lock_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? MINUTE)
+     WHERE id = 1
+       AND (lock_until IS NULL OR lock_until < UTC_TIMESTAMP())`,
+    [minutes]
   );
+  return r.affectedRows; // 1 si aplicó el lock, 0 si ya estaba bloqueado
 }
 
 async function clearLock() {
   await db.query('UPDATE juego_estado SET lock_until = NULL WHERE id = 1');
 }
-
 async function logEvent({ evento, intento_valor = null, resultado = null, numero_ganador = null, ip = null }) {
   try {
     await db.query(
@@ -184,55 +241,63 @@ function startServer () {
   });
 
   /* ------- INTENTAR GANAR (con bloqueo 24 h y log) ------- */
-  app.post('/intentar', async (req, res) => {
-    const ip = getClientIp(req);
+    app.post('/intentar', async (req, res) => {
+      const ip = getClientIp(req);
 
-    try {
-      // 1) ¿Juego bloqueado?
-      const lock = await getLock();
-      const now  = new Date();
-      if (lock && new Date(lock) > now) {
-        return res.status(423).json({ reason: 'LOCKED_24H', lockedUntil: lock });
-      }
+      try {
+        // 1) ¿Juego bloqueado?
+        const lock = await getLock();
+        const now  = new Date();
+        if (lock && new Date(lock) > now) {
+          return res.status(423).json({ reason: 'LOCKED_24H', lockedUntil: lock });
+        }
 
-      // 2) Obtener ganador actual
-      const numeroGanador = await getWinnerNumber();
-      if (numeroGanador == null) {
-        return res.status(400).json({ message: 'No hay número ganador generado aún' });
-      }
+        // 2) Obtener ganador actual
+        const numeroGanador = await getWinnerNumber();
+        if (numeroGanador == null) {
+          return res.status(400).json({ message: 'No hay número ganador generado aún' });
+        }
 
-      // 3) Intento y resultado
-      let intento = Math.floor(Math.random() * 900) + 100;
-      if (FORCE_WIN) intento = numeroGanador; // modo prueba
+        // 3) Intento y resultado
+        let intento = Math.floor(Math.random() * 900) + 100;
+        if (FORCE_WIN) intento = numeroGanador; // modo prueba
 
-      const esGanador = intento === numeroGanador;
+        const esGanador = intento === numeroGanador;
 
-      // 4) Log attempt
-      await logEvent({
-        evento: 'attempt',
-        intento_valor: intento,
-        resultado: esGanador ? 'win' : 'lose',
-        numero_ganador: numeroGanador,
-        ip
-      });
-
-      // 5) Si gana, bloquear 24 h y log win
-      let lockedUntil = null;
-      if (esGanador) {
-        await setLock24h();
-        lockedUntil = await getLock();
+        // 4) Log attempt
         await logEvent({
-          evento: 'win',
+          evento: 'attempt',
           intento_valor: intento,
-          resultado: 'win',
+          resultado: esGanador ? 'win' : 'lose',
           numero_ganador: numeroGanador,
           ip
         });
-      }
 
-      res.json({ intento, numeroGanador, esGanador, lockedUntil });
-    } catch (e) { res.status(500).json(e); }
-  });
+        // 5) Si gana, bloquear 24 h, log win y (si aplica) enviar email
+        let lockedUntil = null;
+        if (esGanador) {
+          const applied = await setLock();     // ← devuelve 1 si aplicó el lock (aún no estaba)
+          lockedUntil   = await getLock();
+
+          await logEvent({
+            evento: 'win',
+            intento_valor: intento,
+            resultado: 'win',
+            numero_ganador: numeroGanador,
+            ip
+          });
+
+          // Notificar SOLO si este proceso aplicó el lock (evita duplicados)
+          if (applied === 1 && mailer) {
+            mailer.notifyWin({ numeroGanador, intento, ip, lockedUntil }).catch(() => {});
+          }
+        }
+
+        res.json({ intento, numeroGanador, esGanador, lockedUntil });
+      } catch (e) {
+        res.status(500).json(e);
+      }
+    });
 
   /* ------- RECLAMAR PREMIO (log claim) ------- */
   app.post('/reclamar', async (req, res) => {
