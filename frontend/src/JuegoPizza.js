@@ -209,25 +209,30 @@ export default function JuegoPizza() {
       )}
 
       {/* ---------------- MODAL BLOQUEO 24H (countdown) ---------------- */}
+{/* ---------------- MODAL BLOQUEO 24H (countdown) ---------------- */}
       {showLockModal && (lockedUntil && remainingMs > 0) && !modalAbierto && (
         <div className="overlay">
-          <div className="modal-legal">
-            <h2>¡Enhorabuena! 🎉</h2>
+          <div className="modal-legal lock-modal">
+            <h2 className="lock-title">¡Felicitaciones! 🎉</h2>
+
             {ultimoNumeroGanado != null && (
-              <p>
-                El número <strong>{String(ultimoNumeroGanado).padStart(3, "0")}</strong> fue acertado.
+              <p className="lock-subtitle">
+                El número <span className="pill">
+                  {String(ultimoNumeroGanado).padStart(3, "0")}
+                </span> fue acertado
               </p>
             )}
-            <p>
-              El juego se restablecerá en{" "}
-              <strong>{formatCountdown(remainingMs)}</strong>
-            </p>
-            <p style={{ opacity: 0.8, fontSize: "0.9em" }}>
+
+            <p className="lock-caption">El juego se restablecerá en:</p>
+            <div className="countdown">{formatCountdown(remainingMs)}</div>
+
+            <p className="lock-eta">
               Hora estimada: {new Date(lockedUntil).toLocaleTimeString()}
             </p>
           </div>
         </div>
       )}
+
 
       {/* ---------------- BANNER COOKIES -------------------- */}
       {showCookies && (
