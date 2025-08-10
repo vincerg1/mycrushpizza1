@@ -10,11 +10,14 @@ import Confetti from "react-confetti";
 /*  URL a la que se redirige tras agotar los 3 intentos  */
 const TIKTOK_URL = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
 
-/**
- * LINKS LEGALES: coloca bases.html, privacidad.html y cookies.html dentro de
- * public/.  CRA y Railway los servirán directamente.  Apuntamos a esos
- * nombres exactos para evitar que react-router intercepte la ruta.
- */
+/* ====== Helpers countdown ====== */
+function formatCountdown(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const hh = String(Math.floor(s / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
 
 export default function JuegoPizza() {
   /* ---------------- Estados principales del juego ---------------- */
@@ -28,17 +31,80 @@ export default function JuegoPizza() {
   const [contacto, setContacto] = useState("");
   const [shakeGanador, setShakeGanador] = useState(false);
 
+  /* ---------------- Bloqueo 24h / countdown ---------------- */
+  const [lockedUntil, setLockedUntil] = useState(null);    // ISO string o null
+  const [serverOffset, setServerOffset] = useState(0);     // desfase cliente-servidor
+  const [remainingMs, setRemainingMs] = useState(0);
+  const [showLockModal, setShowLockModal] = useState(false);
+  const [ultimoNumeroGanado, setUltimoNumeroGanado] = useState(null);
+
   /* ---------------- Consentimiento legal ---------------- */
   const [showTerms, setShowTerms] = useState(() => !localStorage.getItem("mcp_termsAccepted"));
   const [showCookies, setShowCookies] = useState(() => !localStorage.getItem("mcp_cookiesConsent"));
 
-  /* ---------------- Carga del número ganador ------------- */
+  /* ---------------- Carga del número ganador + estado bloqueo ------------- */
   useEffect(() => {
+    // Usamos /estado para obtener numero, lock y hora del servidor
     axios
-      .get(`${process.env.REACT_APP_BACKEND_URL}/ganador`)
-      .then((res) => setNumeroGanador(res.data.numeroGanador))
-      .catch((err) => console.error("Error:", err));
+      .get(`${process.env.REACT_APP_BACKEND_URL}/estado`)
+      .then((res) => {
+        const { numeroGanador, lockedUntil, now } = res.data || {};
+        if (numeroGanador != null) setNumeroGanador(numeroGanador);
+
+        // sincroniza reloj cliente-servidor
+        if (now) {
+          const offset = Date.now() - new Date(now).getTime();
+          setServerOffset(offset);
+        }
+
+        if (lockedUntil) {
+          setLockedUntil(lockedUntil);
+          setShowLockModal(true);
+        }
+      })
+      .catch((err) => {
+        // fallback: si /estado fallara, intentamos /ganador (tu endpoint anterior)
+        axios
+          .get(`${process.env.REACT_APP_BACKEND_URL}/ganador`)
+          .then((r) => setNumeroGanador(r.data.numeroGanador))
+          .catch((e) => console.error("Error estado/ganador:", e || err));
+      });
   }, []);
+
+  /* --------- Ticker del countdown cuando hay bloqueo --------- */
+  useEffect(() => {
+    if (!lockedUntil) return;
+
+    const untilTs = new Date(lockedUntil).getTime();
+    const tick = () => {
+      const nowAdj = Date.now() - serverOffset;
+      const left = untilTs - nowAdj;
+      setRemainingMs(left);
+    };
+
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lockedUntil, serverOffset]);
+
+  /* --------- Cuando el contador llega a 0, revalidamos estado --------- */
+  useEffect(() => {
+    if (!lockedUntil) return;
+    if (remainingMs > 0) return;
+
+    axios
+      .get(`${process.env.REACT_APP_BACKEND_URL}/estado`)
+      .then(({ data }) => {
+        if (data.lockedUntil) {
+          setLockedUntil(data.lockedUntil);
+        } else {
+          setLockedUntil(null);
+          setShowLockModal(false);
+        }
+        if (data.numeroGanador != null) setNumeroGanador(data.numeroGanador);
+      })
+      .catch(() => {});
+  }, [remainingMs, lockedUntil]);
 
   /* -------------- Aceptación legal ---------------------- */
   const aceptarTerminos = () => {
@@ -49,7 +115,6 @@ export default function JuegoPizza() {
   const aceptarCookies = () => {
     localStorage.setItem("mcp_cookiesConsent", "all");
     setShowCookies(false);
-    // aquí inicializar analytics si procede
   };
 
   const rechazarCookies = () => {
@@ -59,7 +124,7 @@ export default function JuegoPizza() {
 
   /* ------------ INTENTAR GANAR --------------- */
   const intentarGanar = async () => {
-    if (intentosRestantes === 0 || showTerms) return;
+    if (intentosRestantes === 0 || showTerms || (lockedUntil && remainingMs > 0)) return;
 
     try {
       const res = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/intentar`);
@@ -78,6 +143,12 @@ export default function JuegoPizza() {
 
       if (res.data.esGanador) {
         setMensaje("🎉 ¡Ganaste una pizza!");
+        // Capturamos lock para que todos vean el countdown,
+        // pero no abrimos el modal de bloqueo sobre tu modal de reclamo.
+        if (res.data.lockedUntil) {
+          setLockedUntil(res.data.lockedUntil);
+          setUltimoNumeroGanado(res.data.numeroGanador);
+        }
         setTimeout(() => setModalAbierto(true), 1500);
       } else {
         setMensaje("Sigue intentando 🍀");
@@ -91,7 +162,16 @@ export default function JuegoPizza() {
         setShakeGanador(false);
       }, 2000);
     } catch (error) {
-      console.error("Error:", error);
+      const status = error?.response?.status;
+      const data = error?.response?.data;
+      if (status === 423 && data?.lockedUntil) {
+        // Juego bloqueado: mostramos modal de bloqueo
+        setLockedUntil(data.lockedUntil);
+        setUltimoNumeroGanado(numeroGanador);
+        setShowLockModal(true);
+      } else {
+        console.error("Error:", error);
+      }
     }
   };
 
@@ -108,6 +188,9 @@ export default function JuegoPizza() {
   };
 
   /* ------------- UI ---------------- */
+  const botonDeshabilitado =
+    intentosRestantes === 0 || showTerms || (lockedUntil && remainingMs > 0);
+
   return (
     <div className="container">
       {/* --------- MODAL BASES LEGALES (bloqueante) --------- */}
@@ -116,11 +199,32 @@ export default function JuegoPizza() {
           <div className="modal-legal">
             <h2 className="pulse-heading">Antes de jugar</h2>
             <p>
-              Para participar debes ser mayor de 18 años y aceptar nuestras&nbsp;
+              Para participar debes ser mayor de 18 años y aceptar nuestras&nbsp;
               <a href="/bases.html" target="_blank" rel="noopener noreferrer">Bases Legales</a>&nbsp; y&nbsp;
               <a href="/privacidad.html" target="_blank" rel="noopener noreferrer">Política de Privacidad</a>.
             </p>
             <button className="btn-acepto" onClick={aceptarTerminos}>Acepto</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- MODAL BLOQUEO 24H (countdown) ---------------- */}
+      {showLockModal && (lockedUntil && remainingMs > 0) && !modalAbierto && (
+        <div className="overlay">
+          <div className="modal-legal">
+            <h2>¡Enhorabuena! 🎉</h2>
+            {ultimoNumeroGanado != null && (
+              <p>
+                El número <strong>{String(ultimoNumeroGanado).padStart(3, "0")}</strong> fue acertado.
+              </p>
+            )}
+            <p>
+              El juego se restablecerá en{" "}
+              <strong>{formatCountdown(remainingMs)}</strong>
+            </p>
+            <p style={{ opacity: 0.8, fontSize: "0.9em" }}>
+              Hora estimada: {new Date(lockedUntil).toLocaleTimeString()}
+            </p>
           </div>
         </div>
       )}
@@ -157,7 +261,11 @@ export default function JuegoPizza() {
         </div>
       )}
 
-      <button className="boton-intentar shine-button" onClick={intentarGanar} disabled={intentosRestantes === 0 || showTerms}>
+      <button
+        className="boton-intentar shine-button"
+        onClick={intentarGanar}
+        disabled={botonDeshabilitado}
+      >
         Suerte! =) 🎲🍕
       </button>
 
@@ -175,8 +283,15 @@ export default function JuegoPizza() {
           <div className="modal-contenido">
             <h2>🎉 ¡Ganaste una pizza! 🎉</h2>
             <p>Ingresa tu número de contacto para reclamarla:</p>
-            <input type="text" placeholder="Tu número" value={contacto} onChange={(e) => setContacto(e.target.value)} />
-            <button className="boton-reclamar" onClick={reclamarPizza}>Reclamar Pizza 🎊</button>
+            <input
+              type="text"
+              placeholder="Tu número"
+              value={contacto}
+              onChange={(e) => setContacto(e.target.value)}
+            />
+            <button className="boton-reclamar" onClick={reclamarPizza}>
+              Reclamar Pizza 🎊
+            </button>
           </div>
         </div>
       )}
