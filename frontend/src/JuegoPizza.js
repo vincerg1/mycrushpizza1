@@ -7,8 +7,18 @@ import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 import Confetti from "react-confetti";
 
-/*  URL a la que se redirige tras agotar los 3 intentos  */
+/*  URLs a las que se redirige tras agotar los 3 intentos  */
 const TIKTOK_URL = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
+const INSTAGRAM_URL = "https://www.instagram.com/mycrushpizza_/profilecard/?igsh=MTBlNTdlbmt0Z2pobQ%3D%3D";
+
+/* Alterna entre TikTok e Instagram usando localStorage (por dispositivo) */
+const REDIRECT_TOGGLE_KEY = "mcp_redirect_toggle"; // "0" o "1"
+function getNextRedirectUrl() {
+  const current = localStorage.getItem(REDIRECT_TOGGLE_KEY) || "0"; // por defecto 0
+  const nextUrl = current === "0" ? TIKTOK_URL : INSTAGRAM_URL;
+  localStorage.setItem(REDIRECT_TOGGLE_KEY, current === "0" ? "1" : "0");
+  return nextUrl;
+}
 
 /* ====== Helpers countdown ====== */
 function formatCountdown(ms) {
@@ -134,8 +144,9 @@ export default function JuegoPizza() {
       setIntentosRestantes((prev) => {
         const left = prev - 1;
         if (left === 0 && !res.data.esGanador) {
+          const url = getNextRedirectUrl(); // ← alterna TikTok/Instagram
           setTimeout(() => {
-            window.location.href = TIKTOK_URL;
+            window.location.href = url;
           }, 2000);
         }
         return left;
@@ -209,7 +220,6 @@ export default function JuegoPizza() {
       )}
 
       {/* ---------------- MODAL BLOQUEO 24H (countdown) ---------------- */}
-{/* ---------------- MODAL BLOQUEO 24H (countdown) ---------------- */}
       {showLockModal && (lockedUntil && remainingMs > 0) && !modalAbierto && (
         <div className="overlay">
           <div className="modal-legal lock-modal">
@@ -232,7 +242,6 @@ export default function JuegoPizza() {
           </div>
         </div>
       )}
-
 
       {/* ---------------- BANNER COOKIES -------------------- */}
       {showCookies && (
