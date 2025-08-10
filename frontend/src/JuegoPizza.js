@@ -8,7 +8,7 @@ import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 import Confetti from "react-confetti";
 
 /*  URL a la que se redirige tras agotar los 3 intentos  */
-const TIKTOK_URL = "https://www.tiktok.com/@mycrushpizza1?_t=ZN-8whjKa8Moxq&_r=1";
+const TIKTOK_URL = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
 
 /**
  * LINKS LEGALES: coloca bases.html, privacidad.html y cookies.html dentro de
