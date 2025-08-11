@@ -84,6 +84,7 @@ const cfg = {
 const safe = { ...cfg, password: cfg.password ? '***' + cfg.password.slice(-4) : undefined };
 console.log('🔍 Variables de conexión detectadas:');
 console.table(safe);
+console.log('⏱️  LOCK_MINUTES =', LOCK_MINUTES);
 
 /*-------------- 2. CREAR EL POOL Y PROBAR CONEXIÓN ---------------*/
 let db;
