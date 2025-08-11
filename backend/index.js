@@ -142,14 +142,17 @@ async function getLock() {
 }
 
 async function setLock(minutes = LOCK_MINUTES) {
+  // calcula la fecha absoluta en UTC ahora + minutes
+  const until = new Date(Date.now() + minutes * 60 * 1000);
+
   const [r] = await db.query(
     `UPDATE juego_estado
-       SET lock_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? MINUTE)
+       SET lock_until = ?
      WHERE id = 1
        AND (lock_until IS NULL OR lock_until < UTC_TIMESTAMP())`,
-    [minutes]
+    [until]
   );
-  return r.affectedRows; // 1 si aplicó el lock, 0 si ya estaba bloqueado
+  return r.affectedRows; // 1 si aplicó el lock
 }
 
 async function clearLock() {
