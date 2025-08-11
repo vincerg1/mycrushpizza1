@@ -15,7 +15,7 @@ const NODE_ENV  = process.env.NODE_ENV || 'development';
 const PORT      = process.env.PORT     || 8080;
 const FORCE_WIN = process.env.FORCE_WIN === '1';  // <-- modo prueba: ganar siempre
 const nodemailer = require('nodemailer');
-console.log('⏱️  LOCK_DURATION = 24h (hardcoded)');
+const LOCK_MINUTES = Number(process.env.LOCK_MINUTES || 24 * 60); // por defecto 24h
 
 const mailer = (() => {
   const host = process.env.SMTP_HOST;
@@ -84,7 +84,6 @@ const cfg = {
 const safe = { ...cfg, password: cfg.password ? '***' + cfg.password.slice(-4) : undefined };
 console.log('🔍 Variables de conexión detectadas:');
 console.table(safe);
-console.log('⏱️  LOCK_MINUTES =', LOCK_MINUTES);
 
 /*-------------- 2. CREAR EL POOL Y PROBAR CONEXIÓN ---------------*/
 let db;
@@ -141,16 +140,16 @@ async function getLock() {
   return st ? st.lock_until : null;
 }
 
-// Bloquea SIEMPRE por 24h desde ahora, sobrescribiendo lock activo
-async function setLock24h() {
+async function setLock(minutes = LOCK_MINUTES) {
   const [r] = await db.query(
     `UPDATE juego_estado
-        SET lock_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
-      WHERE id = 1`
+       SET lock_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? MINUTE)
+     WHERE id = 1
+       AND (lock_until IS NULL OR lock_until < UTC_TIMESTAMP())`,
+    [minutes]
   );
-  return r.affectedRows; // debería ser 1
+  return r.affectedRows; // 1 si aplicó el lock, 0 si ya estaba bloqueado
 }
-
 
 async function clearLock() {
   await db.query('UPDATE juego_estado SET lock_until = NULL WHERE id = 1');
@@ -277,7 +276,7 @@ function startServer () {
         // 5) Si gana, bloquear 24 h, log win y (si aplica) enviar email
         let lockedUntil = null;
         if (esGanador) {
-          const applied = await setLock24h();     // ← devuelve 1 si aplicó el lock (aún no estaba)
+          const applied = await setLock();     // ← devuelve 1 si aplicó el lock (aún no estaba)
           lockedUntil   = await getLock();
 
           await logEvent({
