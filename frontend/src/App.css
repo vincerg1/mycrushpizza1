@@ -1,43 +1,52 @@
-/* ====== GLOBAL / BRAND ====== */
+/* ================== FONTS ================== */
+@import url("https://fonts.googleapis.com/css2?family=Rubik+Puddles&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Chewy&family=Fredoka:wght@700;900&display=swap");
 
-/* REEMPLAZA el body y elimina el body::before */
+
+/* ================== BRAND TOKENS ================== */
+:root{
+  --brand-blue: #4285f4;
+  --brand-pink: #f92672;
+  --ink: #111;
+  --navy: #001a4d;
+}
+
+
+/* ================== BASE ================== */
+* { box-sizing: border-box; }
+
 body {
-  background: #4285f4;            /* azul de marca */
+  background: var(--brand-blue);
+  background-attachment: fixed;
+  color: var(--ink);
   font-family: Arial, sans-serif;
   text-align: center;
   margin: 0;
   padding: 0;
-  color: #111;
 }
 
-/* Tarjeta principal (opcional, si puedes envolver el juego) */
-.card {
-  max-width: 420px;
-  margin: 40px auto 24px;
-  padding: 24px 20px;
-  background: #fff;
-  border-radius: 18px;
-  box-shadow: 0 16px 40px rgba(0,0,0,.25),
-              0 4px 10px rgba(0,0,0,.15);
-}
+/* eliminar overlay antiguo */
+body::before { display: none !important; }
 
-/* Contenedor existente – centra y da respiro */
+/* layout principal */
 .container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 16px;
-  margin-top: 24px;      /* era 50px */
+  padding: 28px 12px 0;
+  margin: 0 auto;
+  max-width: 520px;
 }
 
-/* Logo un poco más responsivo */
+/* Logo con transparencia (PNG/SVG) */
 .logo {
   width: 320px;
-  max-width: 90%;
+  max-width: 92%;
   margin-bottom: 6px;
+  filter: drop-shadow(0 12px 26px rgba(0,0,0,.35));
 }
 
-/* Titulares con look más “candy” */
+/* Titular principal opcional */
 h1 {
   font-family: "Rubik Puddles", system-ui;
   color: #fff;
@@ -47,20 +56,22 @@ h1 {
   text-shadow: 0 3px 0 rgba(0,0,0,.18);
 }
 
+/* “NÚMERO GANADOR” con look de marca */
 h2 {
-  font-family: "Chewy", cursive;
+  font-family: "Fredoka", system-ui;
   font-size: 2.2rem;
   font-weight: 900;
-  color: #fff;                     /* antes marrón */
   letter-spacing: .5px;
+  color: #fff;
+  margin: 10px 0 14px;
   text-shadow: 0 4px 0 rgba(0,0,0,.18),
                0 12px 18px rgba(0,0,0,.35);
-  margin: 8px 0 14px;
 }
 
-/* Número ganador y casillas más nítidas */
+
+/* ================== NÚMEROS ================== */
 .numero-ganador {
-  color: #111;
+  color: var(--ink);
   font-weight: 900;
   display: flex;
   flex-direction: column;
@@ -71,7 +82,7 @@ h2 {
 .numero-casillas {
   display: flex;
   justify-content: center;
-  gap: 10px;                       /* un pelín más de aire */
+  gap: 10px;
 }
 
 .casilla {
@@ -80,70 +91,143 @@ h2 {
   align-items: center;
   width: 48px;
   height: 52px;
+  font-family: "Fredoka", system-ui; /* dígitos redondeados */
   font-size: 26px;
   font-weight: 900;
+  color: var(--ink);
   background-color: #fff;
-  border: 3px solid #4285f4;       /* azul de marca */
+  border: 3px solid var(--brand-blue);
   border-radius: 12px;
-  box-shadow: 0 3px 0 rgba(0,0,0,.15);
+  box-shadow: 0 3px 0 rgba(0,0,0,.18);
 }
 
-/* Botón: gradiente marca, más “pill” */
+/* pequeño temblor al cambiar */
+.shake { animation: shake-anim 0.5s ease; }
+@keyframes shake-anim {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-5px, 0); }
+  40% { transform: translate(5px, 0); }
+  60% { transform: translate(-5px, 0); }
+  80% { transform: translate(5px, 0); }
+  100% { transform: translate(0, 0); }
+}
+
+
+/* ================== CTA / BOTONES ================== */
 .boton-intentar {
+  margin-top: 10px;
   padding: 14px 26px;
   font-size: 20px;
   font-weight: 900;
   border-radius: 14px;
-  background: linear-gradient(180deg, #f92672 0%, #4285f4 100%);
+  background: linear-gradient(180deg, var(--brand-pink) 0%, var(--brand-blue) 100%);
   color: #fff;
   border: none;
   cursor: pointer;
-  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
-  box-shadow: 0 10px 0 rgba(0,0,0,.18), 0 16px 30px rgba(0,0,0,.3);
+  transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+  box-shadow: 0 10px 0 rgba(0,0,0,.18),
+              0 16px 30px rgba(0,0,0,.30);
+  transform: translateZ(0);
 }
-
 .boton-intentar:hover {
   transform: translateY(-1px) scale(1.03);
   filter: brightness(1.05);
 }
-
 .boton-intentar:active {
   transform: translateY(1px) scale(.98);
   box-shadow: 0 6px 0 rgba(0,0,0,.22);
 }
-
 .boton-intentar:disabled {
   background: linear-gradient(180deg, #9aa7ff 0%, #7a7a7a 100%);
   cursor: not-allowed;
   box-shadow: none;
 }
 
-/* Toast y winner con mejor contraste sobre fondo azul */
-.toast-bubble {
-  background: rgba(255, 255, 255, 0.96);
-  color: #111;
-  border: 2px solid #4285f4;
+.intentos {
+  font-size: 18px;
+  margin-top: 18px;
+  font-weight: bold;
+  color: #0d1b2a;
 }
 
+
+/* ================== TOAST – NÚMEROS JUGADOS ================== */
+/* se mantiene la estructura; solo afinamos contraste y z-index */
+.toast-bubble {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--ink);
+  padding: 20px 25px;
+  border-radius: 15px;
+  font-size: 32px;
+  font-weight: bold;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--brand-blue);
+  animation: move-up-fade 3s ease-in-out forwards;
+  z-index: 10000; /* ↑ para que nunca quede oculto */
+  text-align: center;
+}
+@keyframes move-up-fade {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  15%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  70%  { opacity: 1; transform: translate(-50%, -120%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -160%) scale(1.15); }
+}
+.toast-numero {
+  font-family: "Fredoka", Arial, sans-serif;
+  font-size: 3.6rem;
+  color: #000;
+  display: inline-block;
+}
+
+
+/* ================== MENSAJE GANADOR ================== */
 .winner-message {
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   background: rgba(249, 38, 114, 0.96); /* fucsia marca */
   color: #fff;
+  font-size: 2rem;
+  padding: 20px 30px;
+  border-radius: 12px;
+  font-weight: 900;
+  text-align: center;
+  z-index: 9999;
+  opacity: 0;
   border: 2px solid #fff;
+  animation: fadeInOut 3s ease-in-out;
+}
+@keyframes fadeInOut {
+  0%   { opacity: 0; transform: translate(-50%, -60%); }
+  20%  { opacity: 1; transform: translate(-50%, -50%); }
+  80%  { opacity: 1; transform: translate(-50%, -50%); }
+  100% { opacity: 0; transform: translate(-50%, -40%); }
 }
 
-/* Footer oscuro semi-transparente para que “flote” sobre el azul */
+
+/* ================== FOOTER / SOCIAL ================== */
 .footer {
   width: 100%;
   margin-top: 60px;
   padding: 20px;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 26, 77, 0.78);
   color: #fff;
   font-size: 14px;
   font-style: italic;
   text-align: center;
 }
-
-/* Iconos blancos con leve brillo al hover */
+.footer .info-text {
+  animation: fadePulse 2s ease-in-out infinite;
+  margin-bottom: 1rem;
+  font-weight: bold;
+  text-align: center;
+}
+.social-icons { margin-bottom: 36px; }
 .icon {
   font-size: 1.8rem;
   margin: 0 10px;
@@ -152,18 +236,194 @@ h2 {
 }
 .icon:hover { transform: scale(1.12); filter: brightness(1.2); }
 
-/* Banner cookies: armonizado con la paleta */
-.cookie-banner {
-  background: rgba(0,0,0,.7);
-  color: #eee;
+@keyframes fadePulse {
+  0% { opacity: 0; }
+  50%{ opacity: 1; }
+  100%{ opacity: 0; }
 }
-.btn-cookies.yes { background: #4285f4; color: #fff; }
-.btn-cookies.no  { background: #f92672; color: #fff; }
 
-/* Ajustes responsive */
-@media (max-width: 420px) {
+
+/* ================== MODALES (premios / legales) ================== */
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+  text-align: center;
+}
+.modal-contenido h2 {
+  font-family: "Fredoka", system-ui;
+  font-size: 1.8rem;
+  color: #222;
+}
+.modal-contenido input {
+  width: 80%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.boton-reclamar {
+  background: var(--brand-pink);
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 900;
+  transition: filter .2s ease;
+}
+.boton-reclamar:hover { filter: brightness(0.95); }
+
+/* overlay legal bloqueante */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.modal-legal {
+  background: #ffffff;
+  max-width: 420px;
+  width: 90%;
+  padding: 2.2rem 1.8rem;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+.modal-legal h2 {
+  margin-bottom: 0.8rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #222;
+  font-family: "Fredoka", system-ui;
+}
+.modal-legal p {
+  font-size: 0.95rem;
+  line-height: 1.45;
+  margin-bottom: 1.6rem;
+}
+.modal-legal a {
+  color: var(--brand-pink);
+  text-decoration: underline;
+}
+.btn-acepto {
+  background: var(--brand-blue);
+  color: #fff;
+  padding: 0.6rem 2.2rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.25s;
+}
+.btn-acepto:hover { opacity: 0.9; }
+
+
+/* ================== COOKIES ================== */
+.cookie-banner {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,.72);
+  color: #eee;
+  font-size: 0.85rem;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+}
+.cookie-banner a {
+  color: var(--brand-pink);
+  text-decoration: underline;
+}
+.cookie-actions { display: flex; gap: 0.6rem; }
+.btn-cookies {
+  padding: 0.4rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.25s;
+}
+.btn-cookies:hover { opacity: 0.88; }
+.btn-cookies.yes { background: var(--brand-blue); color: #fff; }
+.btn-cookies.no  { background: #555; color: #fff; }
+
+
+/* ================== EFECTOS EXTRA (si los usas) ================== */
+@keyframes pulse-dual {
+  0%   { text-shadow: 0 0 0px var(--brand-blue), 0 0 0px var(--brand-pink); transform: scale(1); }
+  50%  { text-shadow: 0 0 8px var(--brand-blue), 0 0 12px var(--brand-pink); transform: scale(1.05); }
+  100% { text-shadow: 0 0 0px var(--brand-blue), 0 0 0px var(--brand-pink); transform: scale(1); }
+}
+.pulse-heading { animation: pulse-dual 1.8s infinite ease-in-out; color: var(--brand-pink); }
+
+.shine-button {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(to right, var(--brand-pink), var(--brand-blue));
+  color: white;
+  font-weight: bold;
+  transition: transform 0.2s;
+}
+.shine-button::before {
+  content: "";
+  position: absolute;
+  top: 0; left: -75%;
+  width: 50%; height: 100%;
+  background: rgba(255, 255, 255, 0.4);
+  transform: skewX(-20deg);
+  animation: shine 2s infinite;
+}
+@keyframes shine {
+  0% { left: -75%; }
+  50%,100% { left: 125%; }
+}
+
+/* lock / misc */
+.lock-modal { text-align: center; padding: 28px 24px; }
+.lock-title { margin: 0 0 8px; font-size: 28px; }
+.lock-subtitle { margin: 0 0 12px; font-size: 16px; }
+.pill {
+  display: inline-block;
+  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  background: #fff;
+  border-radius: 12px;
+  padding: 4px 10px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.08);
+}
+.lock-caption { margin: 6px 0; font-size: 14px; }
+.countdown {
+  font-variant-numeric: tabular-nums;
+  font-size: 42px;
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: 1px;
+  margin: 6px 0;
+  font-family: "Fredoka", system-ui;
+}
+.lock-eta { opacity: .75; font-size: .9rem; margin-top: 8px; }
+
+
+/* ================== RESPONSIVE ================== */
+@media (max-width: 420px){
   h1 { font-size: 2rem; }
   h2 { font-size: 1.9rem; }
+  .logo { width: 300px; }
   .casilla { width: 44px; height: 48px; font-size: 24px; }
   .boton-intentar { width: 92%; max-width: 360px; }
 }
