@@ -4,19 +4,35 @@
  *  – Ping preventivo cada 5 min
  *  – Logging sin exponer la contraseña
  *  – Bloqueo global de 24h y tabla de historial
+ *  – 🔗 Emisión de cupón FP en proyecto "ventas" al reclamar premio
  *****************************************************************/
 
 require('dotenv').config();
 const express = require('express');
 const cors    = require('cors');
 const mysql   = require('mysql2/promise');
-
-const NODE_ENV  = process.env.NODE_ENV || 'development';
-const PORT      = process.env.PORT     || 8080;
-const FORCE_WIN = process.env.FORCE_WIN === '1';  // <-- modo prueba: ganar siempre
 const nodemailer = require('nodemailer');
+
+// 🔗 VENTAS: HTTP nativo para no añadir deps
+const { URL } = require('url');
+const https = require('https');
+const http  = require('http');
+
+const NODE_ENV     = process.env.NODE_ENV || 'development';
+const PORT         = process.env.PORT     || 8080;
+const FORCE_WIN    = process.env.FORCE_WIN === '1';
 const LOCK_MINUTES = Number(process.env.LOCK_MINUTES || 24 * 60); // por defecto 24h
 
+/* ---------- 🔗 VENTAS: Config de integración ---------- */
+const VENTAS = {
+  apiBase   : process.env.VENTAS_API_BASE || '', // ej. https://ventas-production.up.railway.app
+  apiKey    : process.env.VENTAS_API_KEY  || '', // clave compartida
+  couponPath: process.env.VENTAS_COUPON_PATH || '/internal/coupons/issue-from-game', // endpoint en VENTAS
+  tenant    : process.env.TENANT_ID || null, // opcional multi-tenant futuro
+};
+const ventasEnabled = !!(VENTAS.apiBase && VENTAS.apiKey);
+
+/* ---------- Email (opcional) ---------- */
 const mailer = (() => {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
@@ -29,9 +45,7 @@ const mailer = (() => {
     return null;
   }
 
-  const transporter = nodemailer.createTransport({
-    host, port, secure, auth: { user, pass }
-  });
+  const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
 
   async function notifyWin({ numeroGanador, intento, ip, lockedUntil }) {
     try {
@@ -56,10 +70,7 @@ Fecha servidor (UTC): ${new Date().toISOString()}`;
 
       await transporter.sendMail({
         from: process.env.MAIL_FROM || 'noreply@local',
-        to,
-        subject,
-        text,
-        html
+        to, subject, text, html
       });
       console.log('✉️  Email de ganador enviado a:', to.join(', '));
     } catch (err) {
@@ -154,17 +165,61 @@ async function setLock(minutes = LOCK_MINUTES) {
 async function clearLock() {
   await db.query('UPDATE juego_estado SET lock_until = NULL WHERE id = 1');
 }
-async function logEvent({ evento, intento_valor = null, resultado = null, numero_ganador = null, ip = null }) {
+
+async function logEvent({ evento, intento_valor = null, resultado = null, numero_ganador = null, ip = null, extra = null }) {
   try {
     await db.query(
-      `INSERT INTO juego_historial (evento, intento_valor, resultado, numero_ganador, ip)
-       VALUES (?, ?, ?, ?, ?)`,
-      [evento, intento_valor, resultado, numero_ganador, ip]
+      `INSERT INTO juego_historial (evento, intento_valor, resultado, numero_ganador, ip, extra)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [evento, intento_valor, resultado, numero_ganador, ip, extra ? JSON.stringify(extra) : null]
     );
   } catch (e) {
-    // No romper el flujo si el log falla
     console.warn('⚠️  No se pudo escribir en juego_historial:', e.code || e.message);
   }
+}
+
+/* ---------- 🔗 VENTAS: cliente HTTP JSON + idempotencia ---------- */
+function postJson(urlStr, payload, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(urlStr);
+    const body = JSON.stringify(payload);
+    const isHttps = u.protocol === 'https:';
+    const options = {
+      hostname: u.hostname,
+      port: u.port || (isHttps ? 443 : 80),
+      path: u.pathname + (u.search || ''),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        ...headers
+      },
+      timeout: 8000
+    };
+    const req = (isHttps ? https : http).request(options, (res) => {
+      let raw = '';
+      res.on('data', (d) => (raw += d));
+      res.on('end', () => {
+        let json = null;
+        try { json = raw ? JSON.parse(raw) : null; } catch { /* noop */ }
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve({ status: res.statusCode, data: json });
+        } else {
+          reject(new Error(`HTTP ${res.statusCode}: ${raw || '(sin cuerpo)'}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(new Error('timeout')); });
+    req.write(body);
+    req.end();
+  });
+}
+
+function ventasUrl(pathname) {
+  const base = VENTAS.apiBase.replace(/\/+$/, '');
+  const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  return `${base}${path}`;
 }
 
 /*-------------- 3. DEFINICIÓN DE ENDPOINTS -----------------------*/
@@ -241,65 +296,65 @@ function startServer () {
   });
 
   /* ------- INTENTAR GANAR (con bloqueo 24 h y log) ------- */
-    app.post('/intentar', async (req, res) => {
-      const ip = getClientIp(req);
+  app.post('/intentar', async (req, res) => {
+    const ip = getClientIp(req);
 
-      try {
-        // 1) ¿Juego bloqueado?
-        const lock = await getLock();
-        const now  = new Date();
-        if (lock && new Date(lock) > now) {
-          return res.status(423).json({ reason: 'LOCKED_24H', lockedUntil: lock });
-        }
+    try {
+      // 1) ¿Juego bloqueado?
+      const lock = await getLock();
+      const now  = new Date();
+      if (lock && new Date(lock) > now) {
+        return res.status(423).json({ reason: 'LOCKED_24H', lockedUntil: lock });
+      }
 
-        // 2) Obtener ganador actual
-        const numeroGanador = await getWinnerNumber();
-        if (numeroGanador == null) {
-          return res.status(400).json({ message: 'No hay número ganador generado aún' });
-        }
+      // 2) Obtener ganador actual
+      const numeroGanador = await getWinnerNumber();
+      if (numeroGanador == null) {
+        return res.status(400).json({ message: 'No hay número ganador generado aún' });
+      }
 
-        // 3) Intento y resultado
-        let intento = Math.floor(Math.random() * 900) + 100;
-        if (FORCE_WIN) intento = numeroGanador; // modo prueba
+      // 3) Intento y resultado
+      let intento = Math.floor(Math.random() * 900) + 100;
+      if (FORCE_WIN) intento = numeroGanador; // modo prueba
 
-        const esGanador = intento === numeroGanador;
+      const esGanador = intento === numeroGanador;
 
-        // 4) Log attempt
+      // 4) Log attempt
+      await logEvent({
+        evento: 'attempt',
+        intento_valor: intento,
+        resultado: esGanador ? 'win' : 'lose',
+        numero_ganador: numeroGanador,
+        ip
+      });
+
+      // 5) Si gana, bloquear 24 h, log win y (si aplica) enviar email
+      let lockedUntil = null;
+      if (esGanador) {
+        const applied = await setLock();     // ← devuelve 1 si aplicó el lock (aún no estaba)
+        lockedUntil   = await getLock();
+
         await logEvent({
-          evento: 'attempt',
+          evento: 'win',
           intento_valor: intento,
-          resultado: esGanador ? 'win' : 'lose',
+          resultado: 'win',
           numero_ganador: numeroGanador,
           ip
         });
 
-        // 5) Si gana, bloquear 24 h, log win y (si aplica) enviar email
-        let lockedUntil = null;
-        if (esGanador) {
-          const applied = await setLock();     // ← devuelve 1 si aplicó el lock (aún no estaba)
-          lockedUntil   = await getLock();
-
-          await logEvent({
-            evento: 'win',
-            intento_valor: intento,
-            resultado: 'win',
-            numero_ganador: numeroGanador,
-            ip
-          });
-
-          // Notificar SOLO si este proceso aplicó el lock (evita duplicados)
-          if (applied === 1 && mailer) {
-            mailer.notifyWin({ numeroGanador, intento, ip, lockedUntil }).catch(() => {});
-          }
+        // Notificar SOLO si este proceso aplicó el lock (evita duplicados)
+        if (applied === 1 && mailer) {
+          mailer.notifyWin({ numeroGanador, intento, ip, lockedUntil }).catch(() => {});
         }
-
-        res.json({ intento, numeroGanador, esGanador, lockedUntil });
-      } catch (e) {
-        res.status(500).json(e);
       }
-    });
 
-  /* ------- RECLAMAR PREMIO (log claim) ------- */
+      res.json({ intento, numeroGanador, esGanador, lockedUntil });
+    } catch (e) {
+      res.status(500).json(e);
+    }
+  });
+
+  /* ------- RECLAMAR PREMIO (log claim + 🔗 emitir cupón en VENTAS) ------- */
   app.post('/reclamar', async (req, res) => {
     const { contacto } = req.body;
     const ip = getClientIp(req);
@@ -321,22 +376,76 @@ function startServer () {
         [contacto, g.id]
       );
 
-      // log claim
+      // 🧾 LOG: claim
       await logEvent({
         evento: 'claim',
         intento_valor: null,
-        resultado: null,
+        resultado: 'ok',
         numero_ganador: g.numero,
-        ip
+        ip,
+        extra: { contacto }
       });
 
-      // generar nuevo número
+      /* ---------- 🔗 VENTAS: emitir cupón FP desde pool ---------- */
+      let couponResp = null;
+      let couponErr  = null;
+
+      if (ventasEnabled) {
+        const url = ventasUrl(VENTAS.couponPath);
+        const idem = `claim-${g.id}`; // idempotencia por reclamo
+        const payload = {
+          source: 'game',
+          kind: 'FP',              // el endpoint en VENTAS asignará un FP disponible
+          gameNumber: g.numero,    // para trazabilidad
+          contact: contacto,
+          tenant: VENTAS.tenant    // opcional
+        };
+
+        try {
+          const { data } = await postJson(url, payload, {
+            'X-API-Key': VENTAS.apiKey,
+            'X-Idempotency-Key': idem
+          });
+          couponResp = data || null;
+
+          // 🧾 LOG: cupón emitido OK
+          await logEvent({
+            evento: 'coupon_issue',
+            resultado: 'ok',
+            numero_ganador: g.numero,
+            ip,
+            extra: { idem, returned: couponResp }
+          });
+        } catch (err) {
+          couponErr = err.message || String(err);
+          console.warn('⚠️  Emisión de cupón en VENTAS falló:', couponErr);
+
+          // 🧾 LOG: cupón emitido FAIL
+          await logEvent({
+            evento: 'coupon_issue',
+            resultado: 'fail',
+            numero_ganador: g.numero,
+            ip,
+            extra: { idem, error: couponErr }
+          });
+        }
+      } else {
+        console.log('ℹ️  Integración con VENTAS deshabilitada (faltan VENTAS_API_BASE/VENTAS_API_KEY).');
+      }
+
+      // generar nuevo número (independiente del cupón)
       const nuevo = Math.floor(Math.random() * 900) + 100;
       await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [nuevo]);
 
       res.json({
         message: 'Premio reclamado y nuevo número generado 🎊',
-        nuevoNumeroGanador: nuevo
+        nuevoNumeroGanador: nuevo,
+        couponIssued: !!couponResp,
+        coupon: couponResp && {
+          code: couponResp.code || couponResp.coupon?.code || null,
+          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
+        },
+        couponError: couponErr
       });
     } catch (e) { res.status(500).json(e); }
   });
@@ -368,10 +477,6 @@ function startServer () {
   );
 }
 
-/* ---------- INTENTAR GANAR SIEMPRE (PRUEBA) ---------- */
-/*
-  Mantienes esta sección por si prefieres activarla manualmente.
-  Ahora la ruta /intentar ya fuerza el acierto si pones FORCE_WIN=1 en .env
-  Ejemplo:
-    FORCE_WIN=1 NODE_ENV=development node index.js
+/* ---------- INTENTAR GANAR SIEMPRE (PRUEBA) ----------
+  Mantenido como comentario; ahora /intentar fuerza acierto con FORCE_WIN=1
 */
