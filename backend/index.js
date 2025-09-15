@@ -13,7 +13,7 @@ const cors    = require('cors');
 const mysql   = require('mysql2/promise');
 const nodemailer = require('nodemailer');
 
-// 🔗 VENTAS: HTTP nativo para no añadir deps
+// 🔗 Ventas: HTTP nativo para no añadir deps
 const { URL } = require('url');
 const https = require('https');
 const http  = require('http');
@@ -24,13 +24,14 @@ const FORCE_WIN    = process.env.FORCE_WIN === '1';
 const LOCK_MINUTES = Number(process.env.LOCK_MINUTES || 24 * 60); // por defecto 24h
 
 /* ---------- 🔗 VENTAS: Config de integración ---------- */
-const VENTAS = {
-  apiBase   : process.env.VENTAS_API_BASE || '', // ej. https://ventas-production.up.railway.app
-  apiKey    : process.env.VENTAS_API_KEY  || '', // clave compartida
-  couponPath: process.env.VENTAS_COUPON_PATH || '/internal/coupons/issue-from-game', // endpoint en VENTAS
-  tenant    : process.env.TENANT_ID || null, // opcional multi-tenant futuro
+const SALES = {
+  base     : (process.env.SALES_API_URL || '').trim(),       // ej. https://mycrushpizza-parche-production.up.railway.app
+  key      : (process.env.SALES_API_KEY || '').trim(),       // clave compartida
+  issuePath: process.env.SALES_COUPON_PATH || '/api/coupons/issue',
+  hours    : Number(process.env.SALES_COUPON_HOURS_TO_EXPIRY || 24),
+  tenant   : process.env.TENANT_ID || null,                  // opcional, multi-tenant futuro
 };
-const ventasEnabled = !!(VENTAS.apiBase && VENTAS.apiKey);
+const salesEnabled = !!(SALES.base && SALES.key);
 
 /* ---------- Email (opcional) ---------- */
 const mailer = (() => {
@@ -166,6 +167,8 @@ async function clearLock() {
   await db.query('UPDATE juego_estado SET lock_until = NULL WHERE id = 1');
 }
 
+// Nota: esta versión asume columna "extra" (JSON) en juego_historial.
+// Si aún no la tienes, elimina el campo "extra" del INSERT.
 async function logEvent({ evento, intento_valor = null, resultado = null, numero_ganador = null, ip = null, extra = null }) {
   try {
     await db.query(
@@ -216,8 +219,8 @@ function postJson(urlStr, payload, headers = {}) {
   });
 }
 
-function ventasUrl(pathname) {
-  const base = VENTAS.apiBase.replace(/\/+$/, '');
+function salesUrl(pathname) {
+  const base = SALES.base.replace(/\/+$/, '');
   const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
   return `${base}${path}`;
 }
@@ -245,7 +248,7 @@ function startServer () {
     } catch (e) { res.status(500).json(e); }
   });
 
-  /* ------- LISTAR GANADORES ENTREGADOS ------- */
+  /* ------- LISTAR GANADORES RECLAMADOS Y NO ENTREGADOS ------- */
   app.get('/lista-ganadores', async (_, res) => {
     try {
       const [rows] = await db.query(
@@ -376,7 +379,7 @@ function startServer () {
         [contacto, g.id]
       );
 
-      // 🧾 LOG: claim
+      // LOG: claim
       await logEvent({
         evento: 'claim',
         intento_valor: null,
@@ -386,29 +389,31 @@ function startServer () {
         extra: { contacto }
       });
 
-      /* ---------- 🔗 VENTAS: emitir cupón FP desde pool ---------- */
+      /* ---------- 🔗 VENTAS: emitir cupón FP ---------- */
       let couponResp = null;
       let couponErr  = null;
 
-      if (ventasEnabled) {
-        const url = ventasUrl(VENTAS.couponPath);
+      if (salesEnabled) {
+        const url  = salesUrl(SALES.issuePath);
         const idem = `claim-${g.id}`; // idempotencia por reclamo
+
         const payload = {
+          hours: SALES.hours,
+          prefix: 'MCP-FP',
           source: 'game',
-          kind: 'FP',              // el endpoint en VENTAS asignará un FP disponible
-          gameNumber: g.numero,    // para trazabilidad
+          gameNumber: g.numero,
           contact: contacto,
-          tenant: VENTAS.tenant    // opcional
+          tenant: SALES.tenant
         };
 
         try {
           const { data } = await postJson(url, payload, {
-            'X-API-Key': VENTAS.apiKey,
-            'X-Idempotency-Key': idem
+            'x-api-key': SALES.key,
+            'x-idempotency-key': idem
           });
           couponResp = data || null;
 
-          // 🧾 LOG: cupón emitido OK
+          // LOG OK
           await logEvent({
             evento: 'coupon_issue',
             resultado: 'ok',
@@ -420,7 +425,7 @@ function startServer () {
           couponErr = err.message || String(err);
           console.warn('⚠️  Emisión de cupón en VENTAS falló:', couponErr);
 
-          // 🧾 LOG: cupón emitido FAIL
+          // LOG FAIL
           await logEvent({
             evento: 'coupon_issue',
             resultado: 'fail',
@@ -430,7 +435,7 @@ function startServer () {
           });
         }
       } else {
-        console.log('ℹ️  Integración con VENTAS deshabilitada (faltan VENTAS_API_BASE/VENTAS_API_KEY).');
+        console.log('ℹ️  Integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).');
       }
 
       // generar nuevo número (independiente del cupón)
