@@ -217,34 +217,50 @@ h2 {
 }
 
 /* ================== FOOTER / SOCIAL ================== */
-/* full-bleed sin cambiar el layout central */
+/* Full-bleed y contenedor interno como en ventas */
 .footer {
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
   width: 100vw;
   max-width: 100vw;
   margin-top: 60px;
-  padding: 24px 28px calc(24px + env(safe-area-inset-bottom));
-  background: rgba(0, 26, 77, 0.9);
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #ff2e73 0%, #ff4e90 100%);
   color: #fff;
-  font-size: 14px;
-  font-style: italic;
   text-align: center;
 }
+.footer__inner{ max-width: 720px; margin: 0 auto; }
 .footer .info-text {
   animation: fadePulse 2s ease-in-out infinite;
-  margin-bottom: 1rem;
-  font-weight: bold;
-  text-align: center;
+  margin-bottom: 10px;
+  font-weight: 800;
 }
-.social-icons { margin-bottom: 36px; }
+.social-icons{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap: 22px;
+  margin: 10px 0 16px;
+}
 .icon {
   font-size: 1.8rem;
-  margin: 0 10px;
   color: #fff;
   transition: transform .18s ease, filter .18s ease;
 }
-.icon:hover { transform: scale(1.12); filter: brightness(1.2); }
+.icon:hover { transform: translateY(-1px) scale(1.06); filter: brightness(1.15); }
+
+.footer__legal{
+  opacity:.95; font-style: italic; margin: 2px 0 6px;
+}
+.footer__links a{
+  color:#fff;
+  text-decoration: underline;
+  margin: 0 6px;
+  font-weight: 600;
+}
+@media (max-width: 420px){
+  .footer__links a{ display:inline-block; margin: 4px 6px; }
+}
 
 @keyframes fadePulse {
   0% { opacity: 0; }
@@ -267,6 +283,7 @@ h2 {
   max-width: 440px;
   width: 92vw;
 }
+.modal-contenido { position: relative; }
 .modal-contenido h2 {
   font-family: "Fredoka", system-ui;
   font-size: 1.9rem;
@@ -281,6 +298,16 @@ h2 {
   border: 1px solid #ccc;
   border-radius: 8px;
 }
+/* ✕ cerrar modal */
+.modal-close{
+  position:absolute; top:8px; right:8px;
+  width:36px; height:36px; border-radius:10px;
+  border:none; background:#f2f2f7; color:#222;
+  font-size:20px; line-height:36px; cursor:pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  transition: filter .15s ease, transform .12s ease;
+}
+.modal-close:hover{ filter: brightness(.98); transform: scale(1.03); }
 
 .boton-reclamar {
   background: var(--brand-pink);

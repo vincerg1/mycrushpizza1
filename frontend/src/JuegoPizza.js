@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./App.css";
-import logo from "../src/logo/nuevoLogoMyCrushPizza.jpeg";
+import logo from "../src/logo/logoAzulMCP1.jpeg"; 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
@@ -296,53 +296,69 @@ export default function JuegoPizza() {
       )}
 
       {/* --------- MODAL GANADOR / CUPÓN --------- */}
-      {modalAbierto && (
-        <div className="modal">
-          <div className="modal-contenido">
-            {!coupon ? (
-              <>
-                <h2>🎉 ¡Ganaste una pizza! 🎉</h2>
-                <p>Ingresa tu número de contacto para reclamarla:</p>
-                <input
-                  type="text"
-                  placeholder="Tu número"
-                  value={contacto}
-                  onChange={(e) => setContacto(e.target.value)}
-                />
-                <button className="boton-reclamar" onClick={reclamarPizza} disabled={isClaiming}>
-                  {isClaiming ? "Procesando…" : "Reclamar Pizza 🎊"}
-                </button>
-                {couponError && <p style={{ color: "#e63946", marginTop: 12 }}>{couponError}</p>}
-              </>
-            ) : (
-              <>
-                <h2>🎟️ ¡Cupón listo!</h2>
-                <p>Usa este código en el portal de ventas dentro del tiempo indicado.</p>
-                <div
-                  className="coupon-code"
-                  style={{ fontSize: "1.6rem", fontWeight: 700, letterSpacing: 2, margin: "12px 0" }}
-                >
-                  {coupon.code}
-                </div>
-                <p>Vence: {new Date(coupon.expiresAt).toLocaleString()}</p>
-                <div style={{ marginTop: 12 }}>
-                  <button
-                    className="boton-reclamar"
-                    onClick={async () => {
-                      try { await navigator.clipboard.writeText(coupon.code); alert("Código copiado ✅"); } catch {}
-                    }}
-                  >
-                    Copiar código
-                  </button>
-                  <button className="boton-reclamar" style={{ marginLeft: 8 }} onClick={cerrarModalGanador}>
-                    Listo
-                  </button>
-                </div>
-              </>
-            )}
+    {modalAbierto && (
+  <div
+    className="modal"
+    role="dialog"
+    aria-modal="true"
+    onClick={() => setModalAbierto(false)}
+  >
+    <div className="modal-contenido" onClick={(e) => e.stopPropagation()}>
+      <button
+        className="modal-close"
+        aria-label="Cerrar"
+        onClick={() => setModalAbierto(false)}
+        title="Cerrar"
+      >
+        ✕
+      </button>
+
+      {!coupon ? (
+        <>
+          <h2>🎉 ¡Ganaste una pizza! 🎉</h2>
+          <p>Ingresa tu número de contacto para reclamarla:</p>
+          <input
+            type="text"
+            placeholder="Tu número"
+            value={contacto}
+            onChange={(e) => setContacto(e.target.value)}
+          />
+          <button
+            className="boton-reclamar"
+            onClick={reclamarPizza}
+            disabled={isClaiming}
+          >
+            {isClaiming ? "Procesando…" : "Reclamar Pizza 🎊"}
+          </button>
+          {couponError && (
+            <p style={{ color: "#e63946", marginTop: 12 }}>{couponError}</p>
+          )}
+        </>
+      ) : (
+        <>
+          <h2>🎟️ ¡Cupón listo!</h2>
+          <p>Usa este código en el portal de ventas dentro del tiempo indicado.</p>
+          <div className="coupon-code">{coupon.code}</div>
+          <p>Vence: {new Date(coupon.expiresAt).toLocaleString()}</p>
+
+          <div style={{ marginTop: 12 }}>
+            <button
+              className="boton-reclamar"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(coupon.code);
+                  alert("Código copiado ✅");
+                } catch {}
+              }}
+            >
+              Copiar código
+            </button>
           </div>
-        </div>
+        </>
       )}
+    </div>
+  </div>
+)}
 
       {/* --------- Banner cookies simple --------- */}
       {showCookies && (
@@ -362,36 +378,58 @@ export default function JuegoPizza() {
         </div>
       )}
 
-      <footer className="footer">
-        <p className="info-text">¡Más información aquí!</p>
-        <div className="social-icons">
-          <a
-            href="https://wa.me/34694301433"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="WhatsApp Chat"
-          >
-            <FontAwesomeIcon icon={faWhatsapp} className="icon" />
-          </a>
-        </div>
-        <div className="social-icons">
-          <a
-            href="https://www.tiktok.com/@mycrushpizza1?_t=ZN-8whjKa8Moxq&_r=1"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <FontAwesomeIcon icon={faTiktok} className="icon" />
-          </a>
-          <a href="tel:694301433" className="call-link" aria-label="Llamar">
-            <FontAwesomeIcon icon={faMobileScreenButton} className="icon" />
-          </a>
-        </div>
-        <p>
-          © {new Date().getFullYear()} MyCrushPizza SL.
-          <br />
-          Todos los derechos reservados.
-        </p>
-      </footer>
+<footer className="footer">
+  <div className="footer__inner">
+    <p className="info-text">¡Más información aquí!</p>
+
+    <div className="social-icons">
+      <a
+        href="https://wa.me/34694301433"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="WhatsApp Chat"
+      >
+        <FontAwesomeIcon icon={faWhatsapp} className="icon" />
+      </a>
+      <a
+        href="https://www.tiktok.com/@mycrushpizza1?_t=ZN-8whjKa8Moxq&_r=1"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="TikTok"
+      >
+        <FontAwesomeIcon icon={faTiktok} className="icon" />
+      </a>
+      <a href="tel:694301433" className="call-link" aria-label="Llamar">
+        <FontAwesomeIcon icon={faMobileScreenButton} className="icon" />
+      </a>
+    </div>
+
+    <p className="footer__legal">
+      © {new Date().getFullYear()} MyCrushPizza SL.
+      <br />
+      Todos los derechos reservados.
+    </p>
+
+    <p className="footer__links">
+      <a href="/bases.html" target="_blank" rel="noopener noreferrer">
+        Términos y condiciones
+      </a>
+      ·
+      <a href="/privacidad.html" target="_blank" rel="noopener noreferrer">
+        Privacidad
+      </a>
+      ·
+      <a href="/cookies.html" target="_blank" rel="noopener noreferrer">
+        Política de cookies
+      </a>
+      ·
+      <a href="#" onClick={(e) => { e.preventDefault(); localStorage.setItem("mcp_cookiesConsent",""); window.location.reload(); }}>
+        Preferencias de cookies
+      </a>
+    </p>
+  </div>
+</footer>
+
     </div>
   );
 }
