@@ -20,7 +20,7 @@
 * { box-sizing: border-box; }
 
 body {
-  background: var(--brand-blue);
+  background: var(--brand-pink);        /* ← mismo fondo que el portal */
   background-attachment: fixed;
   color: var(--ink);
   font-family: Arial, sans-serif;
@@ -37,31 +37,31 @@ body::before { display: none !important; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 14px 12px 0;      /* antes 28px */
+  padding: 14px;                         /* ← 14px en TODOS los lados */
   margin: 0 auto;
   max-width: var(--pc-card-max);
+  box-sizing: border-box;
 }
 
 /* ========= CARD (caja blanca estilo portal) ========= */
 .card{
   background: #fff;
-  border-radius: var(--pc-radius);      /* antes 22px */
-  padding: 12px var(--pc-card-pad) 18px;/* menos aire arriba */
+  border-radius: var(--pc-radius);
+  padding: var(--pc-card-pad);           /* ← 16px 16px 16px 16px */
   width: 100%;
   max-width: var(--pc-card-max);
-  margin: 10px auto 12px;               /* compacto */
+  margin: 14px auto;                     /* ← separación vertical 14px como portal */
   box-shadow: 0 10px 20px rgba(0,0,0,.06), 0 2px 6px rgba(0,0,0,.04);
-  overflow: hidden;                      /* recorta halos internos */
+  overflow: hidden;
 }
-
 /* Logo dentro de la tarjeta: “hero” compacto, sin sombra */
 .logo--in-card{
   display: block;
-  margin: 6px auto 10px;                           /* pegado a borde y título */
-  width: clamp(220px, 82vw, var(--hero-logo-max)); /* control de tamaño */
+  width: min(100%, var(--hero-logo-max));/* ← nunca invade el padding lateral */
   max-width: var(--hero-logo-max);
   height: auto;
-  filter: none !important;                         /* plano en la card */
+  margin: 8px auto 14px;                 /* ← igual que publicCheckout */
+  filter: none !important;
 }
 
 /* color de h2 por defecto dentro de la tarjeta */
@@ -72,18 +72,8 @@ body::before { display: none !important; }
 }
 
 /* Título “NÚMERO GANADOR” compacto con glow suave */
-.winner-title{
-  display: block;
-  background: transparent;
-  color: #1b1b1b !important;
-  padding: 0;
-  border-radius: 0;
-  margin: 2px 0 10px; /* antes 4px 0 12px */
-  text-shadow:
-    0 2px 0 rgba(0,0,0,.10),
-    0 12px 26px rgba(249,38,114,.45);
-  animation: glow-pink 3.2s ease-in-out infinite;
-}
+.winner-title{ margin: 2px 0 12px; }     /* un pelín más de aire como en portal */
+
 @keyframes glow-pink{
   0%,100% { text-shadow: 0 2px 0 rgba(0,0,0,.10), 0 10px 20px rgba(249,38,114,.30); }
   50%     { text-shadow: 0 2px 0 rgba(0,0,0,.10), 0 18px 34px rgba(249,38,114,.60); }
@@ -168,22 +158,18 @@ h2 {
 }
 
 /* ================== CTA / BOTONES ================== */
-.boton-intentar {
-  display: block;
-  width: 100%;
+.boton-intentar{
+  display:block;
+  width:100%;                          /* se alinea con la card por el padding 14px del wrapper */
   max-width: var(--pc-card-max);
-  margin: 12px auto 0;      /* cerca de la card */
-  padding: 12px 16px;       /* compacto */
-  font-size: 18px;          /* antes 20px */
-  font-weight: 900;
-  border-radius: 12px;      /* acorde al portal */
+  margin: 12px auto 0;
+  padding: 12px 16px;
+  font-size: 18px;
+  border-radius: 12px;
   background: linear-gradient(180deg, var(--brand-pink) 0%, var(--brand-blue) 100%);
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+  color:#fff; border:0;
   box-shadow: 0 10px 0 rgba(0,0,0,.18), 0 16px 30px rgba(0,0,0,.30);
-  transform: translateZ(0);
+  transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
 }
 .boton-intentar:hover { transform: translateY(-1px) scale(1.03); filter: brightness(1.05); }
 .boton-intentar:active { transform: translateY(1px) scale(.98); box-shadow: 0 6px 0 rgba(0,0,0,.22); }
