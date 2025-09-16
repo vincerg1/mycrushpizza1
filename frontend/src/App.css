@@ -20,7 +20,7 @@
 * { box-sizing: border-box; }
 
 body {
-  background: var(--brand-pink);        /* ← mismo fondo que el portal */
+  background: var(--brand-blue);        /* ← mismo fondo que el portal */
   background-attachment: fixed;
   color: var(--ink);
   font-family: Arial, sans-serif;
