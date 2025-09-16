@@ -2,7 +2,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Rubik+Puddles&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Chewy&family=Fredoka:wght@700;900&display=swap");
 
-
 /* ================== BRAND TOKENS ================== */
 :root{
   --brand-blue: #4285f4;
@@ -10,7 +9,6 @@
   --ink: #111;
   --navy: #001a4d;
 }
-
 
 /* ================== BASE ================== */
 * { box-sizing: border-box; }
@@ -68,7 +66,6 @@ h2 {
                0 12px 18px rgba(0,0,0,.35);
 }
 
-
 /* ================== NÚMEROS ================== */
 .numero-ganador {
   color: var(--ink);
@@ -112,7 +109,6 @@ h2 {
   100% { transform: translate(0, 0); }
 }
 
-
 /* ================== CTA / BOTONES ================== */
 .boton-intentar {
   margin-top: 10px;
@@ -150,9 +146,7 @@ h2 {
   color: #0d1b2a;
 }
 
-
 /* ================== TOAST – NÚMEROS JUGADOS ================== */
-/* se mantiene la estructura; solo afinamos contraste y z-index */
 .toast-bubble {
   position: absolute;
   top: 50%;
@@ -167,7 +161,7 @@ h2 {
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
   border: 2px solid var(--brand-blue);
   animation: move-up-fade 3s ease-in-out forwards;
-  z-index: 10000; /* ↑ para que nunca quede oculto */
+  z-index: 10000; /* muy arriba para que no quede oculto */
   text-align: center;
 }
 @keyframes move-up-fade {
@@ -183,21 +177,20 @@ h2 {
   display: inline-block;
 }
 
-
 /* ================== MENSAJE GANADOR ================== */
 .winner-message {
   position: fixed;
   top: 40%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(249, 38, 114, 0.96); /* fucsia marca */
+  background: rgba(249, 38, 114, 0.96);
   color: #fff;
   font-size: 2rem;
   padding: 20px 30px;
   border-radius: 12px;
   font-weight: 900;
   text-align: center;
-  z-index: 9999;
+  z-index: 10001;
   opacity: 0;
   border: 2px solid #fff;
   animation: fadeInOut 3s ease-in-out;
@@ -209,13 +202,30 @@ h2 {
   100% { opacity: 0; transform: translate(-50%, -40%); }
 }
 
+/* ================== CUPÓN (visual) ================== */
+.coupon-code{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  background: #fff;
+  color: #111;
+  border: 2px dashed var(--brand-blue);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: inline-block;
+}
 
 /* ================== FOOTER / SOCIAL ================== */
+/* full-bleed sin cambiar el layout central */
 .footer {
-  width: 100%;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  width: 100vw;
+  max-width: 100vw;
   margin-top: 60px;
-  padding: 20px;
-  background: rgba(0, 26, 77, 0.78);
+  padding: 24px 28px calc(24px + env(safe-area-inset-bottom));
+  background: rgba(0, 26, 77, 0.9);
   color: #fff;
   font-size: 14px;
   font-style: italic;
@@ -242,7 +252,6 @@ h2 {
   100%{ opacity: 0; }
 }
 
-
 /* ================== MODALES (premios / legales) ================== */
 .modal {
   position: fixed;
@@ -250,21 +259,25 @@ h2 {
   left: 50%;
   transform: translate(-50%, -50%);
   background: #fff;
-  padding: 25px;
-  border-radius: 12px;
+  padding: 28px 22px;
+  border-radius: 14px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
-  z-index: 1000;
+  z-index: 10001; /* por encima del lock overlay */
   text-align: center;
+  max-width: 440px;
+  width: 92vw;
 }
 .modal-contenido h2 {
   font-family: "Fredoka", system-ui;
-  font-size: 1.8rem;
+  font-size: 1.9rem;
   color: #222;
+  line-height: 1.15;
 }
 .modal-contenido input {
-  width: 80%;
+  width: 100%;
+  max-width: 320px;
   padding: 10px;
-  margin: 10px 0;
+  margin: 10px auto;
   border: 1px solid #ccc;
   border-radius: 8px;
 }
@@ -278,9 +291,11 @@ h2 {
   cursor: pointer;
   font-size: 1rem;
   font-weight: 900;
-  transition: filter .2s ease;
+  min-width: 200px;
+  transition: filter .2s ease, transform .12s ease;
 }
 .boton-reclamar:hover { filter: brightness(0.95); }
+.boton-reclamar:active { transform: translateY(1px); }
 
 /* overlay legal bloqueante */
 .overlay {
@@ -329,7 +344,6 @@ h2 {
 }
 .btn-acepto:hover { opacity: 0.9; }
 
-
 /* ================== COOKIES ================== */
 .cookie-banner {
   position: fixed;
@@ -337,7 +351,7 @@ h2 {
   background: rgba(0,0,0,.72);
   color: #eee;
   font-size: 0.85rem;
-  padding: 0.9rem 1rem;
+  padding: 0.9rem 1rem calc(0.9rem + env(safe-area-inset-bottom));
   display: flex;
   flex-wrap: wrap;
   gap: 0.8rem;
@@ -362,8 +376,7 @@ h2 {
 .btn-cookies.yes { background: var(--brand-blue); color: #fff; }
 .btn-cookies.no  { background: #555; color: #fff; }
 
-
-/* ================== EFECTOS EXTRA (si los usas) ================== */
+/* ================== EFECTOS EXTRA ================== */
 @keyframes pulse-dual {
   0%   { text-shadow: 0 0 0px var(--brand-blue), 0 0 0px var(--brand-pink); transform: scale(1); }
   50%  { text-shadow: 0 0 8px var(--brand-blue), 0 0 12px var(--brand-pink); transform: scale(1.05); }
@@ -417,7 +430,6 @@ h2 {
   font-family: "Fredoka", system-ui;
 }
 .lock-eta { opacity: .75; font-size: .9rem; margin-top: 8px; }
-
 
 /* ================== RESPONSIVE ================== */
 @media (max-width: 420px){

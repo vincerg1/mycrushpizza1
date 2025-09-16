@@ -7,12 +7,14 @@ import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 import Confetti from "react-confetti";
 
-/*  URLs a las que se redirige tras agotar los 3 intentos  */
-const TIKTOK_URL = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
-const INSTAGRAM_URL = "https://www.instagram.com/mycrushpizza_/profilecard/?igsh=MTBlNTdlbmt0Z2pobQ%3D%3D";
+/* ========= Config ========= */
+const API_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
-/* Alterna entre TikTok e Instagram usando localStorage (por dispositivo) */
-const REDIRECT_TOGGLE_KEY = "mcp_redirect_toggle"; // "0" o "1"
+/* Alterna destino tras agotar intentos */
+const TIKTOK_URL = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
+const INSTAGRAM_URL =
+  "https://www.instagram.com/mycrushpizza_/profilecard/?igsh=MTBlNTdlbmt0Z2pobQ%3D%3D";
+const REDIRECT_TOGGLE_KEY = "mcp_redirect_toggle";
 function getNextRedirectUrl() {
   const current = localStorage.getItem(REDIRECT_TOGGLE_KEY) || "0";
   const nextUrl = current === "0" ? TIKTOK_URL : INSTAGRAM_URL;
@@ -54,17 +56,22 @@ export default function JuegoPizza() {
   const [ultimoNumeroGanado, setUltimoNumeroGanado] = useState(null);
 
   /* ---------------- Consentimiento legal ---------------- */
-  const [showTerms, setShowTerms] = useState(() => !localStorage.getItem("mcp_termsAccepted"));
-  const [showCookies, setShowCookies] = useState(() => !localStorage.getItem("mcp_cookiesConsent"));
+  const [showTerms, setShowTerms] = useState(
+    () => !localStorage.getItem("mcp_termsAccepted")
+  );
+  const [showCookies, setShowCookies] = useState(
+    () => !localStorage.getItem("mcp_cookiesConsent")
+  );
 
   /* ---------------- Carga del número ganador + estado bloqueo ------------- */
   useEffect(() => {
     axios
-      .get(`${process.env.REACT_APP_BACKEND_URL}/estado`)
+      .get(`${API_BASE}/estado`)
       .then((res) => {
         const { numeroGanador, lockedUntil, now } = res.data || {};
         if (numeroGanador != null) setNumeroGanador(numeroGanador);
 
+        // sincroniza reloj cliente-servidor
         if (now) {
           const offset = Date.now() - new Date(now).getTime();
           setServerOffset(offset);
@@ -76,8 +83,9 @@ export default function JuegoPizza() {
         }
       })
       .catch((err) => {
+        // fallback: si /estado fallara, intentamos /ganador
         axios
-          .get(`${process.env.REACT_APP_BACKEND_URL}/ganador`)
+          .get(`${API_BASE}/ganador`)
           .then((r) => setNumeroGanador(r.data.numeroGanador))
           .catch((e) => console.error("Error estado/ganador:", e || err));
       });
@@ -101,7 +109,7 @@ export default function JuegoPizza() {
   useEffect(() => {
     if (!lockedUntil || remainingMs > 0) return;
     axios
-      .get(`${process.env.REACT_APP_BACKEND_URL}/estado`)
+      .get(`${API_BASE}/estado`)
       .then(({ data }) => {
         if (data.lockedUntil) {
           setLockedUntil(data.lockedUntil);
@@ -133,8 +141,7 @@ export default function JuegoPizza() {
     if (intentosRestantes === 0 || showTerms || (lockedUntil && remainingMs > 0)) return;
 
     try {
-      const { data } = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/intentar`);
-      console.log("[/intentar]", data);
+      const { data } = await axios.post(`${API_BASE}/intentar`);
       setIntento(data.intento);
       setEsGanador(Boolean(data.esGanador));
 
@@ -150,10 +157,11 @@ export default function JuegoPizza() {
       if (data.esGanador) {
         setMensaje("🎉 ¡Ganaste una pizza!");
         if (data.lockedUntil) {
+          // el backend ya dejó el lock activo (p. ej. 1 minuto)
           setLockedUntil(data.lockedUntil);
           setUltimoNumeroGanado(data.numeroGanador);
         }
-        // MUY IMPORTANTE: ocultar el modal de bloqueo y abrir el modal ganador YA
+        // Abrimos modal ganador y escondemos el de bloqueo si estuviera visible
         setShowLockModal(false);
         setCoupon(null);
         setCouponError(null);
@@ -188,11 +196,7 @@ export default function JuegoPizza() {
     setCouponError(null);
 
     try {
-      const { data } = await axios.post(
-        `${process.env.REACT_APP_BACKEND_URL}/reclamar`,
-        { contacto }
-      );
-      console.log("[/reclamar]", data);
+      const { data } = await axios.post(`${API_BASE}/reclamar`, { contacto });
 
       if (data.couponIssued && data.coupon?.code) {
         setCoupon({
@@ -211,6 +215,13 @@ export default function JuegoPizza() {
     } finally {
       setIsClaiming(false);
     }
+  };
+
+  const cerrarModalGanador = () => {
+    setModalAbierto(false);
+    setEsGanador(false); // apaga confetti
+    // Si aún queda lock, vuelve a mostrarse el modal de pausa
+    if (lockedUntil && remainingMs > 0) setShowLockModal(true);
   };
 
   /* ------------- UI ---------------- */
@@ -323,7 +334,7 @@ export default function JuegoPizza() {
                   >
                     Copiar código
                   </button>
-                  <button className="boton-reclamar" style={{ marginLeft: 8 }} onClick={() => setModalAbierto(false)}>
+                  <button className="boton-reclamar" style={{ marginLeft: 8 }} onClick={cerrarModalGanador}>
                     Listo
                   </button>
                 </div>
@@ -333,20 +344,53 @@ export default function JuegoPizza() {
         </div>
       )}
 
+      {/* --------- Banner cookies simple --------- */}
+      {showCookies && (
+        <div className="cookie-banner">
+          <span>
+            Usamos cookies para análisis y personalización. Más info en nuestra&nbsp;
+            <a href="/cookies.html" target="_blank" rel="noopener noreferrer">Política de Cookies</a>.
+          </span>
+          <div className="cookie-actions">
+            <button className="btn-cookies no" onClick={() => { localStorage.setItem("mcp_cookiesConsent","none"); setShowCookies(false); }}>
+              Rechazar
+            </button>
+            <button className="btn-cookies yes" onClick={aceptarCookies}>
+              Aceptar
+            </button>
+          </div>
+        </div>
+      )}
+
       <footer className="footer">
         <p className="info-text">¡Más información aquí!</p>
         <div className="social-icons">
-          <a href="https://wa.me/34694301433" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Chat">
+          <a
+            href="https://wa.me/34694301433"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="WhatsApp Chat"
+          >
             <FontAwesomeIcon icon={faWhatsapp} className="icon" />
           </a>
-          <a href="https://www.tiktok.com/@mycrushpizza1?_t=ZN-8whjKa8Moxq&_r=1" target="_blank" rel="noopener noreferrer">
+        </div>
+        <div className="social-icons">
+          <a
+            href="https://www.tiktok.com/@mycrushpizza1?_t=ZN-8whjKa8Moxq&_r=1"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             <FontAwesomeIcon icon={faTiktok} className="icon" />
           </a>
           <a href="tel:694301433" className="call-link" aria-label="Llamar">
             <FontAwesomeIcon icon={faMobileScreenButton} className="icon" />
           </a>
         </div>
-        <p>© {new Date().getFullYear()} MyCrushPizza SL.<br/>Todos los derechos reservados.</p>
+        <p>
+          © {new Date().getFullYear()} MyCrushPizza SL.
+          <br />
+          Todos los derechos reservados.
+        </p>
       </footer>
     </div>
   );
