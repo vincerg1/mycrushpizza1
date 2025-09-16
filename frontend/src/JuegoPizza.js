@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./App.css";
-import logo from "./logo/HOYnuevoLogoMyCrushPizza.jpeg";
+import logo from "./logo/HOYnuevoLogoMyCrushPizza.jpeg"; // ruta correcta
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
@@ -215,7 +215,7 @@ export default function JuegoPizza() {
 
   const cerrarModalGanador = () => {
     setModalAbierto(false);
-    setEsGanador(false);
+    setEsGanador(false); // apaga confetti
     if (lockedUntil && remainingMs > 0) setShowLockModal(true);
   };
 
@@ -261,9 +261,15 @@ export default function JuegoPizza() {
 
       {esGanador && <Confetti numberOfPieces={300} />}
 
-      {/* Caja blanca con logo + números */}
+      {/* ======= TARJETA BLANCA: LOGO + NÚMERO ======= */}
       <div className="card">
-        <img src={logo} alt="MyCrushPizza" className="card-logo" />
+        {/* Logo dentro de la tarjeta, tamaño controlado */}
+        <img
+          src={logo}
+          alt="MyCrushPizza"
+          style={{ display: "block", margin: "6px auto 12px", maxWidth: 260, width: "78%" }}
+        />
+
         {numeroGanador !== null && (
           <div className={`numero-ganador ${shakeGanador ? "shake" : ""}`}>
             <h2 className="pulse-heading">NÚMERO GANADOR</h2>
@@ -288,6 +294,7 @@ export default function JuegoPizza() {
         Suerte! =) 🎲🍕
       </button>
 
+      {/* SIN efecto pulse aquí */}
       <p className="intentos">Intentos restantes: {intentosRestantes}</p>
 
       {showToast && (
@@ -299,9 +306,21 @@ export default function JuegoPizza() {
 
       {/* --------- MODAL GANADOR / CUPÓN --------- */}
       {modalAbierto && (
-        <div className="modal" role="dialog" aria-modal="true" onClick={cerrarModalGanador}>
+        <div
+          className="modal"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setModalAbierto(false)}
+        >
           <div className="modal-contenido" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" aria-label="Cerrar" onClick={cerrarModalGanador} title="Cerrar">✕</button>
+            <button
+              className="modal-close"
+              aria-label="Cerrar"
+              onClick={() => setModalAbierto(false)}
+              title="Cerrar"
+            >
+              ✕
+            </button>
 
             {!coupon ? (
               <>
@@ -313,10 +332,16 @@ export default function JuegoPizza() {
                   value={contacto}
                   onChange={(e) => setContacto(e.target.value)}
                 />
-                <button className="boton-reclamar" onClick={reclamarPizza} disabled={isClaiming}>
+                <button
+                  className="boton-reclamar"
+                  onClick={reclamarPizza}
+                  disabled={isClaiming}
+                >
                   {isClaiming ? "Procesando…" : "Reclamar Pizza 🎊"}
                 </button>
-                {couponError && <p style={{ color: "#e63946", marginTop: 12 }}>{couponError}</p>}
+                {couponError && (
+                  <p style={{ color: "#e63946", marginTop: 12 }}>{couponError}</p>
+                )}
               </>
             ) : (
               <>
@@ -324,11 +349,15 @@ export default function JuegoPizza() {
                 <p>Usa este código en el portal de ventas dentro del tiempo indicado.</p>
                 <div className="coupon-code">{coupon.code}</div>
                 <p>Vence: {new Date(coupon.expiresAt).toLocaleString()}</p>
+
                 <div style={{ marginTop: 12 }}>
                   <button
                     className="boton-reclamar"
                     onClick={async () => {
-                      try { await navigator.clipboard.writeText(coupon.code); alert("Código copiado ✅"); } catch {}
+                      try {
+                        await navigator.clipboard.writeText(coupon.code);
+                        alert("Código copiado ✅");
+                      } catch {}
                     }}
                   >
                     Copiar código
@@ -348,7 +377,13 @@ export default function JuegoPizza() {
             <a href="/cookies.html" target="_blank" rel="noopener noreferrer">Política de Cookies</a>.
           </span>
           <div className="cookie-actions">
-            <button className="btn-cookies no" onClick={() => { localStorage.setItem("mcp_cookiesConsent","none"); setShowCookies(false); }}>
+            <button
+              className="btn-cookies no"
+              onClick={() => {
+                localStorage.setItem("mcp_cookiesConsent", "none");
+                setShowCookies(false);
+              }}
+            >
               Rechazar
             </button>
             <button className="btn-cookies yes" onClick={aceptarCookies}>
@@ -363,10 +398,20 @@ export default function JuegoPizza() {
           <p className="info-text">¡Más información aquí!</p>
 
           <div className="social-icons">
-            <a href="https://wa.me/34694301433" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Chat">
+            <a
+              href="https://wa.me/34694301433"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="WhatsApp Chat"
+            >
               <FontAwesomeIcon icon={faWhatsapp} className="icon" />
             </a>
-            <a href="https://www.tiktok.com/@mycrushpizza1?_t=ZN-8whjKa8Moxq&_r=1" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+            <a
+              href="https://www.tiktok.com/@mycrushpizza1?_t=ZN-8whjKa8Moxq&_r=1"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="TikTok"
+            >
               <FontAwesomeIcon icon={faTiktok} className="icon" />
             </a>
             <a href="tel:694301433" className="call-link" aria-label="Llamar">
@@ -381,10 +426,26 @@ export default function JuegoPizza() {
           </p>
 
           <p className="footer__links">
-            <a href="/bases.html" target="_blank" rel="noopener noreferrer">Términos y condiciones</a> ·
-            <a href="/privacidad.html" target="_blank" rel="noopener noreferrer">Privacidad</a> ·
-            <a href="/cookies.html" target="_blank" rel="noopener noreferrer">Política de cookies</a> ·
-            <a href="#" onClick={(e) => { e.preventDefault(); localStorage.setItem("mcp_cookiesConsent",""); window.location.reload(); }}>
+            <a href="/bases.html" target="_blank" rel="noopener noreferrer">
+              Términos y condiciones
+            </a>
+            ·
+            <a href="/privacidad.html" target="_blank" rel="noopener noreferrer">
+              Privacidad
+            </a>
+            ·
+            <a href="/cookies.html" target="_blank" rel="noopener noreferrer">
+              Política de cookies
+            </a>
+            ·
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                localStorage.setItem("mcp_cookiesConsent", "");
+                window.location.reload();
+              }}
+            >
               Preferencias de cookies
             </a>
           </p>
