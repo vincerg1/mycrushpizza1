@@ -267,19 +267,12 @@ export default function JuegoPizza() {
           <img
             src={logo}
             alt="MyCrushPizza"
-            width={392}
-            height={339}
-            style={{
-              display: "block",
-              margin: "8px auto 12px",
-              width: 328,       
-              height: "auto",    
-              maxWidth: "100%",  
-            }}
+            className="logo logo--in-card"
+            style={{ maxWidth: 328, width: "82%" }}
           />
-        {numeroGanador !== null && (
+         {numeroGanador !== null && (
           <div className={`numero-ganador ${shakeGanador ? "shake" : ""}`}>
-            <h2 className="pulse-heading">NÚMERO GANADOR</h2>
+            <h2 className="winner-title">NÚMERO GANADOR</h2>
             <div className="numero-casillas">
               {numeroGanador
                 .toString()
