@@ -8,7 +8,12 @@
   --brand-pink: #f92672;
   --ink: #111;
   --navy: #001a4d;
-  --logo-max: 360px; /* ↔️ ajusta el tamaño máx del logo dentro de la tarjeta */
+
+  /* ===== tokens inspirados en publicCheckout ===== */
+  --pc-card-max: 560px;      /* ancho uniforme de las cards */
+  --pc-radius: 18px;         /* radio uniforme */
+  --pc-card-pad: 16px;       /* padding interno de card */
+  --hero-logo-max: 340px;    /* tope de tamaño del logo dentro de la card */
 }
 
 /* ================== BASE ================== */
@@ -27,42 +32,53 @@ body {
 /* eliminar overlay antiguo */
 body::before { display: none !important; }
 
-/* layout principal */
+/* layout principal (más compacto y con el mismo ancho que las cards) */
 .container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 28px 12px 0;
+  padding: 14px 12px 0;      /* antes 28px */
   margin: 0 auto;
-  max-width: 520px;
+  max-width: var(--pc-card-max);
 }
 
-/* ========= CARD (caja blanca como en ventas) ========= */
+/* ========= CARD (caja blanca estilo portal) ========= */
 .card{
   background: #fff;
-  border-radius: 22px;
-  padding: 16px 14px 22px;
+  border-radius: var(--pc-radius);      /* antes 22px */
+  padding: 12px var(--pc-card-pad) 18px;/* menos aire arriba */
   width: 100%;
-  max-width: 520px;
-  margin: 8px auto 14px;
+  max-width: var(--pc-card-max);
+  margin: 10px auto 12px;               /* compacto */
+  box-shadow: 0 10px 20px rgba(0,0,0,.06), 0 2px 6px rgba(0,0,0,.04);
+  overflow: hidden;                      /* recorta halos internos */
 }
 
-/* Logo dentro de la tarjeta (control por variable) */
+/* Logo dentro de la tarjeta: “hero” compacto, sin sombra */
 .logo--in-card{
   display: block;
-  margin: 10px auto 12px;
-  width: clamp(300px, 95vw, var(--logo-max));
+  margin: 6px auto 10px;                           /* pegado a borde y título */
+  width: clamp(220px, 82vw, var(--hero-logo-max)); /* control de tamaño */
+  max-width: var(--hero-logo-max);
   height: auto;
+  filter: none !important;                         /* plano en la card */
 }
 
-/* Título “NÚMERO GANADOR” SIN fondo, con glow fucsia suave */
+/* color de h2 por defecto dentro de la tarjeta */
+.card h2 {
+  color: var(--brand-pink) !important;
+  text-shadow: 0 2px 0 rgba(0,0,0,.08);
+  letter-spacing: .3px;
+}
+
+/* Título “NÚMERO GANADOR” compacto con glow suave */
 .winner-title{
   display: block;
   background: transparent;
   color: #1b1b1b !important;
   padding: 0;
   border-radius: 0;
-  margin: 4px 0 12px;
+  margin: 2px 0 10px; /* antes 4px 0 12px */
   text-shadow:
     0 2px 0 rgba(0,0,0,.10),
     0 12px 26px rgba(249,38,114,.45);
@@ -73,20 +89,14 @@ body::before { display: none !important; }
   50%     { text-shadow: 0 2px 0 rgba(0,0,0,.10), 0 18px 34px rgba(249,38,114,.60); }
 }
 
-/* “Intentos restantes” – BLANCO y SIN pulso */
+/* “Intentos restantes” compacto y sin pulso */
 .intentos{
-  font-size: 18px;
-  margin-top: 18px;
+  font-size: 16px;     /* antes 18px */
+  margin-top: 10px;    /* antes 18px */
   font-weight: 700;
   color: #fff;
   text-shadow: 0 1px 0 rgba(0,0,0,.35);
   animation: none !important;
-}
-
-/* color de h2 por defecto dentro de la tarjeta */
-.card h2 {
-  color: #f92672 !important;
-  text-shadow: 0 2px 0 rgba(0,0,0,.10);
 }
 
 /* Logo genérico (fuera de la tarjeta, si se usa) */
@@ -97,24 +107,18 @@ body::before { display: none !important; }
   height: auto;
 }
 
-.logo.logo--in-card {
-  filter: none !important; /* plano dentro de la tarjeta */
-}
-
-/* Titular principal opcional */
+/* ================== TITULARES GENERALES ================== */
 h1 {
   font-family: "Rubik Puddles", system-ui;
   color: #fff;
   margin-top: 1rem;
-  font-size: 2.4rem;
+  font-size: 2.2rem;
   font-weight: 900;
   text-shadow: 0 3px 0 rgba(0,0,0,.18);
 }
-
-/* h2 genérico (para modales, etc.) */
 h2 {
   font-family: "Fredoka", system-ui;
-  font-size: 2.2rem;
+  font-size: 2.1rem;
   font-weight: 900;
   letter-spacing: .5px;
   color: #fff;
@@ -129,7 +133,7 @@ h2 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: 12px; /* antes 18px */
 }
 .numero-casillas {
   display: flex;
@@ -149,7 +153,7 @@ h2 {
   background-color: #fff;
   border: 3px solid var(--brand-blue);
   border-radius: 12px;
-  box-shadow: 0 3px 0 rgba(0,0,0,.18);
+  box-shadow: 0 2px 0 rgba(0,0,0,.14); /* relieve más sutil */
 }
 
 /* pequeño temblor al cambiar */
@@ -165,11 +169,14 @@ h2 {
 
 /* ================== CTA / BOTONES ================== */
 .boton-intentar {
-  margin-top: 10px;
-  padding: 14px 26px;
-  font-size: 20px;
+  display: block;
+  width: 100%;
+  max-width: var(--pc-card-max);
+  margin: 12px auto 0;      /* cerca de la card */
+  padding: 12px 16px;       /* compacto */
+  font-size: 18px;          /* antes 20px */
   font-weight: 900;
-  border-radius: 14px;
+  border-radius: 12px;      /* acorde al portal */
   background: linear-gradient(180deg, var(--brand-pink) 0%, var(--brand-blue) 100%);
   color: #fff;
   border: none;
@@ -262,13 +269,13 @@ h2 {
   margin-right: calc(50% - 50vw);
   width: 100vw;
   max-width: 100vw;
-  margin-top: 60px;
-  padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+  margin-top: 24px;  /* antes 60px */
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, #080355 0%, rgb(21, 1, 147) 100%);
   color: #fff;
   text-align: center;
 }
-.footer__inner{ max-width: 720px; margin: 0 auto; }
+.footer__inner{ max-width: var(--pc-card-max); margin: 0 auto; }
 .footer .info-text { animation: fadePulse 2s ease-in-out infinite; margin-bottom: 10px; font-weight: 800; }
 .social-icons{
   display:flex;
