@@ -268,7 +268,6 @@ export default function JuegoPizza() {
             src={logo}
             alt="MyCrushPizza"
             className="logo logo--in-card"
-            style={{ maxWidth: 328, width: "82%" }}
           />
          {numeroGanador !== null && (
           <div className={`numero-ganador ${shakeGanador ? "shake" : ""}`}>
