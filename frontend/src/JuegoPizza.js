@@ -264,12 +264,19 @@ export default function JuegoPizza() {
       {/* ======= TARJETA BLANCA: LOGO + NÚMERO ======= */}
       <div className="card">
         {/* Logo dentro de la tarjeta, tamaño controlado */}
-        <img
-          src={logo}
-          alt="MyCrushPizza"
-          style={{ display: "block", margin: "6px auto 12px", maxWidth: 260, width: "78%" }}
-        />
-
+          <img
+            src={logo}
+            alt="MyCrushPizza"
+            width={392}
+            height={339}
+            style={{
+              display: "block",
+              margin: "8px auto 12px",
+              width: 328,       
+              height: "auto",    
+              maxWidth: "100%",  
+            }}
+          />
         {numeroGanador !== null && (
           <div className={`numero-ganador ${shakeGanador ? "shake" : ""}`}>
             <h2 className="pulse-heading">NÚMERO GANADOR</h2>
