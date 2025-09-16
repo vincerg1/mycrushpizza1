@@ -225,7 +225,7 @@ h2 {
   max-width: 100vw;
   margin-top: 60px;
   padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, #ff2e73 0%, #ff4e90 100%);
+  background: linear-gradient(180deg, #080355 0%, rgb(21, 1, 147) 100%);
   color: #fff;
   text-align: center;
 }
