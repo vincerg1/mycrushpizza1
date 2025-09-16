@@ -1,9 +1,9 @@
 /*****************************************************************
- *  myCrushPizza – Backend (bloqueo 24h + historial)
+ *  myCrushPizza – Backend (bloqueo + historial)
  *  – Pool con keep-alive
  *  – Ping preventivo cada 5 min
  *  – Logging sin exponer la contraseña
- *  – Bloqueo global de 24h y tabla de historial
+ *  – Bloqueo global del juego tras ganar
  *  – 🔗 Emisión de cupón FP en proyecto "ventas" al reclamar premio
  *****************************************************************/
 
@@ -13,23 +13,35 @@ const cors    = require('cors');
 const mysql   = require('mysql2/promise');
 const nodemailer = require('nodemailer');
 
-// 🔗 Ventas: HTTP nativo para no añadir deps
+// 🔗 Ventas: HTTP nativo
 const { URL } = require('url');
 const https = require('https');
 const http  = require('http');
 
-const NODE_ENV     = process.env.NODE_ENV || 'development';
-const PORT         = process.env.PORT     || 8080;
-const FORCE_WIN    = process.env.FORCE_WIN === '1';
-const LOCK_MINUTES = Number(process.env.LOCK_MINUTES || 24 * 60); // por defecto 24h
+const NODE_ENV  = process.env.NODE_ENV || 'development';
+const PORT      = process.env.PORT     || 8080;
+const FORCE_WIN = process.env.FORCE_WIN === '1';
+
+/** 🔒 BLOQUEO DEL JUEGO
+ *  Queremos bloquear el juego un **minuto** tras un ganador.
+ *  Se puede ajustar con la env LOCK_MINUTES (por defecto 1).
+ */
+const LOCK_MINUTES = Number(
+  process.env.LOCK_MINUTES !== undefined ? process.env.LOCK_MINUTES : 1
+); // ← por defecto 1 minuto
 
 /* ---------- 🔗 VENTAS: Config de integración ---------- */
 const SALES = {
   base     : (process.env.SALES_API_URL || '').trim(),       // ej. https://mycrushpizza-parche-production.up.railway.app
   key      : (process.env.SALES_API_KEY || '').trim(),       // clave compartida
   issuePath: process.env.SALES_COUPON_PATH || '/api/coupons/issue',
-  hours    : Number(process.env.SALES_COUPON_HOURS_TO_EXPIRY || 24),
-  tenant   : process.env.TENANT_ID || null,                  // opcional, multi-tenant futuro
+  /** ⏱️ Vida del cupón (horas). Por defecto 24 h. */
+  hours    : Number(
+              process.env.SALES_COUPON_HOURS_TO_EXPIRY !== undefined
+                ? process.env.SALES_COUPON_HOURS_TO_EXPIRY
+                : 24
+            ),
+  tenant   : process.env.TENANT_ID || null,                  // opcional
 };
 const salesEnabled = !!(SALES.base && SALES.key);
 
@@ -298,7 +310,7 @@ function startServer () {
     } catch (e) { res.status(500).json(e); }
   });
 
-  /* ------- INTENTAR GANAR (con bloqueo 24 h y log) ------- */
+  /* ------- INTENTAR GANAR (con bloqueo y log) ------- */
   app.post('/intentar', async (req, res) => {
     const ip = getClientIp(req);
 
@@ -307,7 +319,7 @@ function startServer () {
       const lock = await getLock();
       const now  = new Date();
       if (lock && new Date(lock) > now) {
-        return res.status(423).json({ reason: 'LOCKED_24H', lockedUntil: lock });
+        return res.status(423).json({ reason: 'LOCKED', lockedUntil: lock });
       }
 
       // 2) Obtener ganador actual
@@ -331,10 +343,10 @@ function startServer () {
         ip
       });
 
-      // 5) Si gana, bloquear 24 h, log win y (si aplica) enviar email
+      // 5) Si gana, bloquear (LOCK_MINUTES), log y (si aplica) email
       let lockedUntil = null;
       if (esGanador) {
-        const applied = await setLock();     // ← devuelve 1 si aplicó el lock (aún no estaba)
+        const applied = await setLock();     // 1 si aplicó el lock
         lockedUntil   = await getLock();
 
         await logEvent({
@@ -345,7 +357,6 @@ function startServer () {
           ip
         });
 
-        // Notificar SOLO si este proceso aplicó el lock (evita duplicados)
         if (applied === 1 && mailer) {
           mailer.notifyWin({ numeroGanador, intento, ip, lockedUntil }).catch(() => {});
         }
@@ -382,14 +393,13 @@ function startServer () {
       // LOG: claim
       await logEvent({
         evento: 'claim',
-        intento_valor: null,
         resultado: 'ok',
         numero_ganador: g.numero,
         ip,
         extra: { contacto }
       });
 
-      /* ---------- 🔗 VENTAS: emitir cupón FP ---------- */
+      /* ---------- 🔗 VENTAS: emitir cupón FP (24 h por defecto) ---------- */
       let couponResp = null;
       let couponErr  = null;
 
@@ -397,8 +407,10 @@ function startServer () {
         const url  = salesUrl(SALES.issuePath);
         const idem = `claim-${g.id}`; // idempotencia por reclamo
 
+        const hoursForCoupon = Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
+
         const payload = {
-          hours: SALES.hours,
+          hours: hoursForCoupon,
           prefix: 'MCP-FP',
           source: 'game',
           gameNumber: g.numero,
@@ -481,7 +493,3 @@ function startServer () {
     console.log(`🚀 Servidor ${NODE_ENV} corriendo en http://localhost:${PORT}`)
   );
 }
-
-/* ---------- INTENTAR GANAR SIEMPRE (PRUEBA) ----------
-  Mantenido como comentario; ahora /intentar fuerza acierto con FORCE_WIN=1
-*/
