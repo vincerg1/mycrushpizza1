@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./App.css";
-import logo from "../src/logo/nuevoLogoMyCrushPizza.jpeg"; 
+import logo from "../src/logo/HOYnuevoLogoMyCrushPizza.jpeg"; 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
@@ -265,8 +265,7 @@ export default function JuegoPizza() {
       )}
 
       {esGanador && <Confetti numberOfPieces={300} />}
-      <img src={logo} alt="Logo de MyCrushPizza" className="logo" />
-
+      <div className="card">
       {numeroGanador !== null && (
         <div className={`numero-ganador ${shakeGanador ? "shake" : ""}`}>
           <h2>NÚMERO GANADOR</h2>
@@ -277,7 +276,7 @@ export default function JuegoPizza() {
           </div>
         </div>
       )}
-
+    </div>
       <button
         className="boton-intentar shine-button"
         onClick={intentarGanar}
