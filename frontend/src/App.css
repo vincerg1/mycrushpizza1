@@ -8,6 +8,7 @@
   --brand-pink: #f92672;
   --ink: #111;
   --navy: #001a4d;
+  --logo-max: 360px; /* ↔️ ajusta el tamaño máx del logo dentro de la tarjeta */
 }
 
 /* ================== BASE ================== */
@@ -47,47 +48,50 @@ body::before { display: none !important; }
   margin: 8px auto 14px;
 }
 
-/* Logo dentro de la tarjeta: mismo tamaño que ventas (máx 328px) */
+/* Logo dentro de la tarjeta (control por variable) */
 .logo--in-card{
   display: block;
   margin: 10px auto 12px;
-  width: clamp(280px, 90vw, 328px);
+  width: clamp(300px, 92vw, var(--logo-max));
   height: auto;
   filter: drop-shadow(0 6px 12px rgba(0,0,0,.12));
 }
 
-/* Título “NÚMERO GANADOR” con fondo rosa + pulse suave */
+/* Título “NÚMERO GANADOR” SIN fondo, con glow fucsia suave */
 .winner-title{
-  display: inline-block;
-  background: #f92672;
-  color: #fff !important;
-  padding: 8px 14px;
-  border-radius: 14px;
-  margin: 6px 0 12px;
-  text-shadow: none;
-  animation: pulse-soft 2.8s ease-in-out infinite;
+  display: block;
+  background: transparent;
+  color: #1b1b1b !important;
+  padding: 0;
+  border-radius: 0;
+  margin: 4px 0 12px;
+  text-shadow:
+    0 2px 0 rgba(0,0,0,.10),
+    0 12px 26px rgba(249,38,114,.45);
+  animation: glow-pink 3.2s ease-in-out infinite;
 }
-@keyframes pulse-soft{
-  0%   { transform: scale(1); }
-  50%  { transform: scale(1.02); }
-  100% { transform: scale(1); }
+@keyframes glow-pink{
+  0%,100% { text-shadow: 0 2px 0 rgba(0,0,0,.10), 0 10px 20px rgba(249,38,114,.30); }
+  50%     { text-shadow: 0 2px 0 rgba(0,0,0,.10), 0 18px 34px rgba(249,38,114,.60); }
 }
 
-/* “Intentos restantes” – SIN pulso y en blanco */
+/* “Intentos restantes” – BLANCO y SIN pulso */
 .intentos{
   font-size: 18px;
   margin-top: 18px;
   font-weight: 700;
-  color: #fff;                 /* blanco */
+  color: #fff;
   text-shadow: 0 1px 0 rgba(0,0,0,.35);
-  animation: none !important;  /* apaga cualquier pulso previo */
+  animation: none !important;
 }
+
+/* color de h2 por defecto dentro de la tarjeta */
 .card h2 {
   color: #1b1b1b !important;
   text-shadow: 0 2px 0 rgba(0,0,0,.10);
 }
 
-/* Logo con transparencia (PNG/SVG) */
+/* Logo genérico (fuera de la tarjeta, si se usa) */
 .logo {
   width: 320px;
   max-width: 92%;
@@ -106,7 +110,7 @@ h1 {
   text-shadow: 0 3px 0 rgba(0,0,0,.18);
 }
 
-/* “NÚMERO GANADOR” con look de marca */
+/* h2 genérico (para modales, etc.) */
 h2 {
   font-family: "Fredoka", system-ui;
   font-size: 2.2rem;
@@ -114,8 +118,7 @@ h2 {
   letter-spacing: .5px;
   color: #fff;
   margin: 10px 0 14px;
-  text-shadow: 0 4px 0 rgba(0,0,0,.18),
-               0 12px 18px rgba(0,0,0,.35);
+  text-shadow: 0 4px 0 rgba(0,0,0,.18), 0 12px 18px rgba(0,0,0,.35);
 }
 
 /* ================== NÚMEROS ================== */
@@ -127,13 +130,11 @@ h2 {
   align-items: center;
   margin-bottom: 18px;
 }
-
 .numero-casillas {
   display: flex;
   justify-content: center;
   gap: 10px;
 }
-
 .casilla {
   display: flex;
   justify-content: center;
@@ -173,8 +174,7 @@ h2 {
   border: none;
   cursor: pointer;
   transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
-  box-shadow: 0 10px 0 rgba(0,0,0,.18),
-              0 16px 30px rgba(0,0,0,.30);
+  box-shadow: 0 10px 0 rgba(0,0,0,.18), 0 16px 30px rgba(0,0,0,.30);
   transform: translateZ(0);
 }
 .boton-intentar:hover { transform: translateY(-1px) scale(1.03); filter: brightness(1.05); }
@@ -183,15 +183,6 @@ h2 {
   background: linear-gradient(180deg, #9aa7ff 0%, #7a7a7a 100%);
   cursor: not-allowed;
   box-shadow: none;
-}
-
-/* “Intentos restantes” con pulse */
-.intentos {
-  font-size: 18px;
-  margin-top: 18px;
-  font-weight: bold;
-  color: #0d1b2a;
-  animation: fadePulse 2.4s ease-in-out infinite;
 }
 
 /* ================== TOAST – NÚMEROS JUGADOS ================== */
@@ -265,7 +256,6 @@ h2 {
 }
 
 /* ================== FOOTER / SOCIAL ================== */
-/* Full-bleed y contenedor interno como en ventas */
 .footer {
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
@@ -278,11 +268,7 @@ h2 {
   text-align: center;
 }
 .footer__inner{ max-width: 720px; margin: 0 auto; }
-.footer .info-text {
-  animation: fadePulse 2s ease-in-out infinite;
-  margin-bottom: 10px;
-  font-weight: 800;
-}
+.footer .info-text { animation: fadePulse 2s ease-in-out infinite; margin-bottom: 10px; font-weight: 800; }
 .social-icons{
   display:flex;
   align-items:center;
@@ -290,29 +276,14 @@ h2 {
   gap: 22px;
   margin: 10px 0 16px;
 }
-.icon {
-  font-size: 1.8rem;
-  color: #fff;
-  transition: transform .18s ease, filter .18s ease;
-}
+.icon { font-size: 1.8rem; color: #fff; transition: transform .18s ease, filter .18s ease; }
 .icon:hover { transform: translateY(-1px) scale(1.06); filter: brightness(1.15); }
-
 .footer__legal{ opacity:.95; font-style: italic; margin: 2px 0 6px; }
-.footer__links a{
-  color:#fff;
-  text-decoration: underline;
-  margin: 0 6px;
-  font-weight: 600;
-}
+.footer__links a{ color:#fff; text-decoration: underline; margin: 0 6px; font-weight: 600; }
 @media (max-width: 420px){
   .footer__links a{ display:inline-block; margin: 4px 6px; }
 }
-
-@keyframes fadePulse {
-  0% { opacity: 0; }
-  50%{ opacity: 1; }
-  100%{ opacity: 0; }
-}
+@keyframes fadePulse { 0%{opacity:0;} 50%{opacity:1;} 100%{opacity:0;} }
 
 /* ================== MODALES (premios / legales) ================== */
 .modal {
@@ -324,7 +295,7 @@ h2 {
   padding: 28px 22px;
   border-radius: 14px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
-  z-index: 10001; /* por encima del lock overlay */
+  z-index: 10001;
   text-align: center;
   max-width: 440px;
   width: 92vw;
@@ -344,7 +315,6 @@ h2 {
   border: 1px solid #ccc;
   border-radius: 8px;
 }
-/* ✕ cerrar modal */
 .modal-close{
   position:absolute; top:8px; right:8px;
   width:36px; height:36px; border-radius:10px;
@@ -396,15 +366,8 @@ h2 {
   color: #222;
   font-family: "Fredoka", system-ui;
 }
-.modal-legal p {
-  font-size: 0.95rem;
-  line-height: 1.45;
-  margin-bottom: 1.6rem;
-}
-.modal-legal a {
-  color: var(--brand-pink);
-  text-decoration: underline;
-}
+.modal-legal p { font-size: 0.95rem; line-height: 1.45; margin-bottom: 1.6rem; }
+.modal-legal a { color: var(--brand-pink); text-decoration: underline; }
 .btn-acepto {
   background: var(--brand-blue);
   color: #fff;
@@ -453,28 +416,6 @@ h2 {
   100% { text-shadow: 0 0 0px var(--brand-blue), 0 0 0px var(--brand-pink); transform: scale(1); }
 }
 .pulse-heading { animation: pulse-dual 1.8s infinite ease-in-out; color: var(--brand-pink); }
-
-.shine-button {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(to right, var(--brand-pink), var(--brand-blue));
-  color: white;
-  font-weight: bold;
-  transition: transform 0.2s;
-}
-.shine-button::before {
-  content: "";
-  position: absolute;
-  top: 0; left: -75%;
-  width: 50%; height: 100%;
-  background: rgba(255, 255, 255, 0.4);
-  transform: skewX(-20deg);
-  animation: shine 2s infinite;
-}
-@keyframes shine {
-  0% { left: -75%; }
-  50%,100% { left: 125%; }
-}
 
 /* lock / misc */
 .lock-modal { text-align: center; padding: 28px 24px; }
