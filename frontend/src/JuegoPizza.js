@@ -262,27 +262,22 @@ export default function JuegoPizza() {
       {esGanador && <Confetti numberOfPieces={300} />}
 
       {/* ======= TARJETA BLANCA: LOGO + NÚMERO ======= */}
-      <div className="card">
-        {/* Logo dentro de la tarjeta, tamaño controlado */}
+        <div className="card">
           <img
             src={logo}
             alt="MyCrushPizza"
             className="logo logo--in-card"
           />
-         {numeroGanador !== null && (
-          <div className={`numero-ganador ${shakeGanador ? "shake" : ""}`}>
-            <h2 className="winner-title">NÚMERO GANADOR</h2>
-            <div className="numero-casillas">
-              {numeroGanador
-                .toString()
-                .padStart(3, "0")
-                .split("")
-                .map((d, i) => (
+        {numeroGanador !== null && (
+            <div className={`numero-ganador ${shakeGanador ? "shake" : ""}`}>
+              <h2 className="winner-title">NÚMERO GANADOR</h2>
+              <div className="numero-casillas">
+                {numeroGanador.toString().padStart(3, "0").split("").map((d, i) => (
                   <span key={i} className="casilla">{d}</span>
                 ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
 
       <button

@@ -38,7 +38,7 @@ body::before { display: none !important; }
 
 /* ========= CARD (caja blanca como en ventas) ========= */
 .card{
-  background: white;            /* #f92672 */
+  background: #fff;
   border-radius: 22px;
   padding: 16px 14px 22px;
   box-shadow: 0 18px 36px rgba(0,0,0,.28);
@@ -46,17 +46,25 @@ body::before { display: none !important; }
   max-width: 520px;
   margin: 8px auto 14px;
 }
+
+/* Logo dentro de la tarjeta: mismo tamaño que ventas (máx 328px) */
 .logo--in-card{
   display: block;
-  margin: 8px auto 6px;
-  width: clamp(240px, 82%, 328px);          /* control preciso de tamaño */
+  margin: 10px auto 12px;
+  width: clamp(280px, 90vw, 328px);
   height: auto;
   filter: drop-shadow(0 6px 12px rgba(0,0,0,.12));
 }
+
+/* Título “NÚMERO GANADOR” con fondo rosa + pulse suave */
 .winner-title{
-  color:#fff;
-  text-shadow: 0 3px 0 rgba(0,0,0,.18);
-  margin-top: 6px;
+  display: inline-block;
+  background: #f92672;
+  color: #fff !important;
+  padding: 8px 14px;
+  border-radius: 14px;
+  margin: 6px 0 12px;
+  text-shadow: none;
   animation: pulse-soft 2.8s ease-in-out infinite;
 }
 @keyframes pulse-soft{
@@ -65,11 +73,14 @@ body::before { display: none !important; }
   100% { transform: scale(1); }
 }
 
-/* “Intentos restantes” SIN pulso y en blanco */
+/* “Intentos restantes” – SIN pulso y en blanco */
 .intentos{
-  color:#fff !important;
-  animation: none !important;
-  text-shadow: 0 1px 0 rgba(0,0,0,.25);
+  font-size: 18px;
+  margin-top: 18px;
+  font-weight: 700;
+  color: #fff;                 /* blanco */
+  text-shadow: 0 1px 0 rgba(0,0,0,.35);
+  animation: none !important;  /* apaga cualquier pulso previo */
 }
 .card h2 {
   color: #1b1b1b !important;
