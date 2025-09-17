@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./App.css";
-import logo from "./logo/HOYnuevoLogoMyCrushPizza.jpeg"; // ruta correcta
+import logo from "./logo/HOYnuevoLogoMyCrushPizza.jpeg";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
@@ -10,25 +10,61 @@ import Confetti from "react-confetti";
 /* ========= Config ========= */
 const API_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
-/* Alterna destino tras agotar intentos */
-const TIKTOK_URL = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
-const INSTAGRAM_URL ="https://www.instagram.com/mycrushpizza_/profilecard/?igsh=MTBlNTdlbmt0Z2pobQ%3D%3D";
-const REDIRECT_TOGGLE_KEY = "mcp_redirect_toggle";
-function getNextRedirectUrl() {
+/* ===== Alternancia robusta de destino (1:1 global por dispositivo) ===== */
+const TIKTOK_URL    = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
+// Si quieres usar el mismo handle del footer, cambia al que prefieras
+const INSTAGRAM_URL = "https://www.instagram.com/mycrushpizza_/profilecard/?igsh=MTBlNTdlbmt0Z2pobQ%3D%3D";
+
+/* Nuevo esquema: contador + lock
+   - mcp_redirect_seq: 0,1,2,3,... (pares→TikTok, impares→Instagram)
+   - mcp_redirect_lock: evita colisiones entre pestañas simultáneas
+*/
+const REDIRECT_SEQ_KEY  = "mcp_redirect_seq";
+const REDIRECT_LOCK_KEY = "mcp_redirect_lock";
+
+/** Lock muy ligero con localStorage para serializar escrituras entre pestañas */
+async function withLocalStorageLock(fn, { timeoutMs = 700 } = {}) {
+  const token = `${Date.now()}_${Math.random()}`;
+  const start = Date.now();
+
+  while (Date.now() - start < timeoutMs) {
+    try {
+      localStorage.setItem(REDIRECT_LOCK_KEY, token);
+      // cede el turno para que otras pestañas puedan escribir si les toca
+      await new Promise(r => setTimeout(r, 0));
+      if (localStorage.getItem(REDIRECT_LOCK_KEY) === token) {
+        try {
+          return await fn();
+        } finally {
+          // libera el lock solo si sigue siendo nuestro
+          if (localStorage.getItem(REDIRECT_LOCK_KEY) === token) {
+            localStorage.removeItem(REDIRECT_LOCK_KEY);
+          }
+        }
+      }
+    } catch {
+      // storage no disponible (modo incognito duro / bloqueado)
+      break;
+    }
+    // pequeño backoff aleatorio
+    await new Promise(r => setTimeout(r, 15 + Math.random() * 35));
+  }
+  // Fallback sin lock: reparte 50/50 para no sesgar
+  return await fn();
+}
+
+/** Devuelve URL alternando 1:1: pares→TikTok, impares→Instagram */
+async function getNextRedirectUrl() {
   try {
-    // normaliza a 0/1; cualquier otra cosa → 0
-    const raw = localStorage.getItem(REDIRECT_TOGGLE_KEY);
-    const cur = raw === "0" || raw === "1" ? Number(raw) : 0;
-
-    // 0 => TikTok (y guardo 1); 1 => Instagram (y guardo 0)
-    const nextUrl  = cur === 0 ? TIKTOK_URL : INSTAGRAM_URL;
-    const nextFlag = cur ^ 1; // toggle 0/1
-    localStorage.setItem(REDIRECT_TOGGLE_KEY, String(nextFlag));
-
-    // console.debug("[redirect]", { cur, nextFlag, nextUrl });
-    return nextUrl;
+    return await withLocalStorageLock(() => {
+      const raw = localStorage.getItem(REDIRECT_SEQ_KEY);
+      const n = Number.isInteger(parseInt(raw, 10)) ? parseInt(raw, 10) : 0;
+      const nextUrl = n % 2 === 0 ? TIKTOK_URL : INSTAGRAM_URL;
+      localStorage.setItem(REDIRECT_SEQ_KEY, String(n + 1));
+      return nextUrl;
+    });
   } catch {
-    // si el storage está bloqueado, por lo menos alterno “aleatorio”
+    // storage no disponible → alterna aleatorio
     return Math.random() < 0.5 ? TIKTOK_URL : INSTAGRAM_URL;
   }
 }
@@ -73,6 +109,18 @@ export default function JuegoPizza() {
   const [showCookies, setShowCookies] = useState(
     () => !localStorage.getItem("mcp_cookiesConsent")
   );
+
+  /* Inicializa el contador si no existe (para que la primera sea TikTok) */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(REDIRECT_SEQ_KEY);
+      if (!Number.isInteger(parseInt(raw, 10))) {
+        localStorage.setItem(REDIRECT_SEQ_KEY, "0");
+      }
+      // Limpieza del esquema viejo si existiera
+      localStorage.removeItem("mcp_redirect_toggle");
+    } catch {}
+  }, []);
 
   /* ---------------- Carga del número ganador + estado bloqueo ------------- */
   useEffect(() => {
@@ -157,8 +205,11 @@ export default function JuegoPizza() {
       setIntentosRestantes((prev) => {
         const left = prev - 1;
         if (left === 0 && !data.esGanador) {
-          const url = getNextRedirectUrl();
-          setTimeout(() => (window.location.href = url), 2000);
+          (async () => {
+            const url = await getNextRedirectUrl();
+            // assign en lugar de href para respetar historia
+            setTimeout(() => window.location.assign(url), 2000);
+          })();
         }
         return left;
       });
@@ -273,22 +324,22 @@ export default function JuegoPizza() {
       {esGanador && <Confetti numberOfPieces={300} />}
 
       {/* ======= TARJETA BLANCA: LOGO + NÚMERO ======= */}
-        <div className="card">
-          <img
-            src={logo}
-            alt="MyCrushPizza"
-            className="logo logo--in-card"
-          />
+      <div className="card">
+        <img
+          src={logo}
+          alt="MyCrushPizza"
+          className="logo logo--in-card"
+        />
         {numeroGanador !== null && (
-            <div className={`numero-ganador ${shakeGanador ? "shake" : ""}`}>
-              <h2 className="winner-title">NÚMERO GANADOR</h2>
-              <div className="numero-casillas">
-                {numeroGanador.toString().padStart(3, "0").split("").map((d, i) => (
-                  <span key={i} className="casilla">{d}</span>
-                ))}
-              </div>
+          <div className={`numero-ganador ${shakeGanador ? "shake" : ""}`}>
+            <h2 className="winner-title">NÚMERO GANADOR</h2>
+            <div className="numero-casillas">
+              {numeroGanador.toString().padStart(3, "0").split("").map((d, i) => (
+                <span key={i} className="casilla">{d}</span>
+              ))}
             </div>
-          )}
+          </div>
+        )}
       </div>
 
       <button
@@ -299,7 +350,6 @@ export default function JuegoPizza() {
         Suerte! =) 🎲🍕
       </button>
 
-      {/* SIN efecto pulse aquí */}
       <p className="intentos">Intentos restantes: {intentosRestantes}</p>
 
       {showToast && (
