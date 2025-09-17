@@ -12,14 +12,28 @@ const API_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
 /* Alterna destino tras agotar intentos */
 const TIKTOK_URL = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
-const INSTAGRAM_URL =
-  "https://www.instagram.com/mycrushpizza_/profilecard/?igsh=MTBlNTdlbmt0Z2pobQ%3D%3D";
+const INSTAGRAM_URL ="https://www.instagram.com/mycrushpizza_/profilecard/?igsh=MTBlNTdlbmt0Z2pobQ%3D%3D";
 const REDIRECT_TOGGLE_KEY = "mcp_redirect_toggle";
 function getNextRedirectUrl() {
-  const current = localStorage.getItem(REDIRECT_TOGGLE_KEY) || "0";
-  const nextUrl = current === "0" ? TIKTOK_URL : INSTAGRAM_URL;
-  localStorage.setItem(REDIRECT_TOGGLE_KEY, current === "0" ? "1" : "0");
-  return nextUrl;
+  try {
+    // lee y normaliza a 0/1; cualquier otra cosa → 0
+    const raw = localStorage.getItem(REDIRECT_TOGGLE_KEY);
+    const cur = raw === "0" || raw === "1" ? Number(raw) : 0;
+
+    // si cur = 0 → va a TikTok y deja guardado 1; si cur = 1 → va a Instagram y deja 0
+    const nextUrl  = cur === 0 ? TIKTOK_URL : INSTAGRAM_URL;
+    const nextFlag = cur ^ 1; // toggle 0/1
+    localStorage.setItem(REDIRECT_TOGGLE_KEY, String(nextFlag));
+
+    // DEBUG opcional:
+    // console.debug("[redirect]", { cur, nextFlag, nextUrl });
+
+    return nextUrl;
+  } catch (e) {
+    // Si localStorage no está disponible, al menos reparte algo:
+    const fallback = Math.random() < 0.5 ? TIKTOK_URL : INSTAGRAM_URL;
+    return fallback;
+  }
 }
 
 /* ====== Helpers countdown ====== */
