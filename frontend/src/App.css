@@ -10,10 +10,10 @@
   --navy: #001a4d;
 
   /* ===== tokens inspirados en publicCheckout ===== */
-  --pc-card-max: 560px;      /* ancho uniforme de las cards */
+  --pc-card-max: 380px;      /* ancho uniforme de las cards */
   --pc-radius: 18px;         /* radio uniforme */
   --pc-card-pad: 16px;       /* padding interno de card */
-  --hero-logo-max: 340px;    /* tope de tamaño del logo dentro de la card */
+
 }
 
 /* ================== BASE ================== */
@@ -45,7 +45,7 @@ body::before { display: none !important; }
 
 /* ========= CARD (caja blanca estilo portal) ========= */
 .card{
-  background: #fff;
+  background: #ffffff;
   border-radius: var(--pc-radius);
   padding: var(--pc-card-pad);           /* ← 16px 16px 16px 16px */
   width: 100%;
@@ -57,11 +57,10 @@ body::before { display: none !important; }
 /* Logo dentro de la tarjeta: “hero” compacto, sin sombra */
 .logo--in-card{
   display: block;
-  width: min(100%, var(--hero-logo-max));/* ← nunca invade el padding lateral */
-  max-width: var(--hero-logo-max);
-  height: auto;
-  margin: 8px auto 14px;                 /* ← igual que publicCheckout */
+   margin-left: -12px;
   filter: none !important;
+  width: 340px;
+  height: 290px;
 }
 
 /* color de h2 por defecto dentro de la tarjeta */
@@ -82,20 +81,16 @@ body::before { display: none !important; }
 /* “Intentos restantes” compacto y sin pulso */
 .intentos{
   font-size: 16px;     /* antes 18px */
-  margin-top: 10px;    /* antes 18px */
-  font-weight: 700;
+  margin-top: 1.2rem;    /* antes 18px */
+  font-weight: 900;
+  font-style: italic;
   color: #fff;
   text-shadow: 0 1px 0 rgba(0,0,0,.35);
   animation: none !important;
+
 }
 
-/* Logo genérico (fuera de la tarjeta, si se usa) */
-.logo {
-  width: 320px;
-  max-width: 92%;
-  margin-bottom: 6px;
-  height: auto;
-}
+
 
 /* ================== TITULARES GENERALES ================== */
 h1 {
@@ -123,7 +118,8 @@ h2 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 12px; /* antes 18px */
+  margin-bottom: 12px; 
+  margin-top: 2rem;
 }
 .numero-casillas {
   display: flex;
@@ -166,7 +162,7 @@ h2 {
   padding: 12px 16px;
   font-size: 18px;
   border-radius: 12px;
-  background: linear-gradient(180deg, var(--brand-pink) 0%, var(--brand-blue) 100%);
+  background: linear-gradient(180deg, var(--brand-pink) 0%, var(--brand-pink) 100%);
   color:#fff; border:0;
   box-shadow: 0 10px 0 rgba(0,0,0,.18), 0 16px 30px rgba(0,0,0,.30);
   transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
@@ -440,7 +436,6 @@ h2 {
 @media (max-width: 420px){
   h1 { font-size: 2rem; }
   h2 { font-size: 1.9rem; }
-  .logo { width: 300px; }
   .casilla { width: 44px; height: 48px; font-size: 24px; }
   .boton-intentar { width: 92%; max-width: 360px; }
 }
