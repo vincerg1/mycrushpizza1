@@ -13,7 +13,7 @@ const API_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 /* ===== Alternancia robusta de destino (1:1 global por dispositivo) ===== */
 const TIKTOK_URL    = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
 // Si quieres usar el mismo handle del footer, cambia al que prefieras
-const INSTAGRAM_URL = "https://www.instagram.com/mycrushpizza_/profilecard/?igsh=MTBlNTdlbmt0Z2pobQ%3D%3D";
+const INSTAGRAM_URL = "https://www.mycrushpizza.com/venta";
 
 /* Nuevo esquema: contador + lock
    - mcp_redirect_seq: 0,1,2,3,... (pares→TikTok, impares→Instagram)
