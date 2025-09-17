@@ -306,14 +306,23 @@ h2 {
   border-radius: 8px;
 }
 .modal-close{
-  position:absolute; top:8px; right:8px;
-  width:36px; height:36px; border-radius:10px;
-  border:none; background:#f2f2f7; color:#222;
-  font-size:20px; line-height:36px; cursor:pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,.12);
-  transition: filter .15s ease, transform .12s ease;
+  position:absolute;
+  top:-12px;              /* fuera del contenedor para que no tape el título */
+  right:-12px;
+  width:36px; height:36px;
+  border-radius:999px;
+  border:none;
+  background: var(--brand-pink);
+  color:#fff;
+  font-size:18px;
+  line-height:36px;
+  cursor:pointer;
+  box-shadow: 0 6px 18px rgba(249,38,114,.35);
+  transition: transform .12s ease, filter .15s ease;
 }
-.modal-close:hover{ filter: brightness(.98); transform: scale(1.03); }
+.modal-close:hover{ transform: translateY(-1px) scale(1.05); filter: brightness(1.05); }
+.modal-close:active{ transform: translateY(1px) scale(.98); }
+.modal-contenido{ position: relative; padding-top: 18px; }
 
 .boton-reclamar {
   background: var(--brand-pink);

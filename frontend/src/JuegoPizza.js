@@ -109,7 +109,13 @@ export default function JuegoPizza() {
   const [showCookies, setShowCookies] = useState(
     () => !localStorage.getItem("mcp_cookiesConsent")
   );
+ const SALES_URL = "https://www.mycrushpizza.com/venta"; 
 
+ function goToSalesWithCoupon(code){
+  const url = new URL(SALES_URL);
+  url.searchParams.set("coupon", code); // el checkout puede leer ?coupon=
+  window.location.href = url.toString(); // misma pestaña
+}
   /* Inicializa el contador si no existe (para que la primera sea TikTok) */
   useEffect(() => {
     try {
@@ -411,6 +417,7 @@ export default function JuegoPizza() {
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(coupon.code);
+                        setTimeout(() => goToSalesWithCoupon(coupon.code), 80);
                         alert("Código copiado ✅");
                       } catch {}
                     }}
