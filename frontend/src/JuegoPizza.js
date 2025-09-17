@@ -16,23 +16,20 @@ const INSTAGRAM_URL ="https://www.instagram.com/mycrushpizza_/profilecard/?igsh=
 const REDIRECT_TOGGLE_KEY = "mcp_redirect_toggle";
 function getNextRedirectUrl() {
   try {
-    // lee y normaliza a 0/1; cualquier otra cosa → 0
+    // normaliza a 0/1; cualquier otra cosa → 0
     const raw = localStorage.getItem(REDIRECT_TOGGLE_KEY);
     const cur = raw === "0" || raw === "1" ? Number(raw) : 0;
 
-    // si cur = 0 → va a TikTok y deja guardado 1; si cur = 1 → va a Instagram y deja 0
+    // 0 => TikTok (y guardo 1); 1 => Instagram (y guardo 0)
     const nextUrl  = cur === 0 ? TIKTOK_URL : INSTAGRAM_URL;
     const nextFlag = cur ^ 1; // toggle 0/1
     localStorage.setItem(REDIRECT_TOGGLE_KEY, String(nextFlag));
 
-    // DEBUG opcional:
     // console.debug("[redirect]", { cur, nextFlag, nextUrl });
-
     return nextUrl;
-  } catch (e) {
-    // Si localStorage no está disponible, al menos reparte algo:
-    const fallback = Math.random() < 0.5 ? TIKTOK_URL : INSTAGRAM_URL;
-    return fallback;
+  } catch {
+    // si el storage está bloqueado, por lo menos alterno “aleatorio”
+    return Math.random() < 0.5 ? TIKTOK_URL : INSTAGRAM_URL;
   }
 }
 
