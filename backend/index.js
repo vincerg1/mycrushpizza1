@@ -5,13 +5,14 @@
  *  – Logging sin exponer la contraseña
  *  – Bloqueo global del juego tras ganar
  *  – 🔗 Emisión de cupón FP en proyecto "ventas" al reclamar premio
+ *  – ✉️ Emails con logs: al ganar y al reclamar
  *****************************************************************/
 
 require('dotenv').config();
-const express = require('express');
-const cors    = require('cors');
-const mysql   = require('mysql2/promise');
-const nodemailer = require('nodemailer');
+const express     = require('express');
+const cors        = require('cors');
+const mysql       = require('mysql2/promise');
+const nodemailer  = require('nodemailer');
 
 // 🔗 Ventas: HTTP nativo
 const { URL } = require('url');
@@ -45,53 +46,116 @@ const SALES = {
 };
 const salesEnabled = !!(SALES.base && SALES.key);
 
-/* ---------- Email (opcional) ---------- */
+/* ---------- Email (opcional) + logs ---------- */
 const mailer = (() => {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
+  const host   = process.env.SMTP_HOST;
+  const port   = Number(process.env.SMTP_PORT || 587);
   const secure = process.env.SMTP_SECURE === '1';
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const user   = process.env.SMTP_USER;
+  const pass   = process.env.SMTP_PASS;
+  const from   = process.env.MAIL_FROM || user || 'noreply@local';
+  const debug  = process.env.MAIL_DEBUG === '1';
+
+  // helper para logs con prefijo y timestamp
+  const ts   = () => new Date().toISOString();
+  const log  = (...a) => console.log(`[mailer ${ts()}]`, ...a);
+  const warn = (...a) => console.warn(`[mailer ${ts()}]`, ...a);
 
   if (!host || !user || !pass) {
-    console.log('✉️  Email desactivado (faltan variables SMTP).');
+    log('desactivado (faltan variables SMTP).');
     return null;
   }
 
-  const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+  // No revelamos el pass
+  log('config:', {
+    host,
+    port,
+    secure,
+    user,
+    from,
+    to: (process.env.MAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean),
+    debug
+  });
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    pool: true,            // conexiones reusadas
+    maxConnections: 3,
+    maxMessages: 50,
+    logger: !!debug,       // logs internos de nodemailer
+    debug : !!debug
+    // tls: { rejectUnauthorized: false } // (usar solo si el hosting rompe TLS)
+  });
+
+  // prueba de conexión al arrancar
+  transporter.verify()
+    .then(() => log('SMTP verify: ✅ conexión ok'))
+    .catch((err) => warn('SMTP verify: ❌', err?.message || err));
+
+  async function send({ to, subject, text, html }) {
+    if (!to?.length) {
+      warn('No hay destinatarios (MAIL_TO). no envío.');
+      return null;
+    }
+    log('enviando…', { subject, to });
+
+    try {
+      const info = await transporter.sendMail({ from, to, subject, text, html });
+      log('enviado ✅', { messageId: info?.messageId, response: info?.response });
+      return info;
+    } catch (err) {
+      warn('falló el envío ❌', err?.response || err?.message || err);
+      throw err;
+    }
+  }
 
   async function notifyWin({ numeroGanador, intento, ip, lockedUntil }) {
-    try {
-      const to = (process.env.MAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean);
-      if (!to.length) return;
-
-      const subject = `🍕 ¡Hay ganador! Nº ${numeroGanador}`;
-      const text = `Se acertó el número ${numeroGanador}.
+    const to = (process.env.MAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean);
+    const subject = `🍕 ¡Hay ganador! Nº ${numeroGanador}`;
+    const text = `Se acertó el número ${numeroGanador}.
 Intento: ${intento}
 IP: ${ip || '-'}
 Bloqueo hasta (UTC): ${lockedUntil || '-'}
 Fecha servidor (UTC): ${new Date().toISOString()}`;
-
-      const html = `
-        <h2>🍕 ¡Hay ganador!</h2>
-        <p><strong>Número ganador:</strong> ${numeroGanador}</p>
-        <p><strong>Intento:</strong> ${intento}</p>
-        <p><strong>IP:</strong> ${ip || '-'}</p>
-        <p><strong>Bloqueo hasta (UTC):</strong> ${lockedUntil || '-'}</p>
-        <p style="opacity:.7">Fecha servidor (UTC): ${new Date().toISOString()}</p>
-      `;
-
-      await transporter.sendMail({
-        from: process.env.MAIL_FROM || 'noreply@local',
-        to, subject, text, html
-      });
-      console.log('✉️  Email de ganador enviado a:', to.join(', '));
-    } catch (err) {
-      console.warn('⚠️  Falló el envío de email:', err.message);
-    }
+    const html = `
+      <h2>🍕 ¡Hay ganador!</h2>
+      <p><strong>Número ganador:</strong> ${numeroGanador}</p>
+      <p><strong>Intento:</strong> ${intento}</p>
+      <p><strong>IP:</strong> ${ip || '-'}</p>
+      <p><strong>Bloqueo hasta (UTC):</strong> ${lockedUntil || '-'}</p>
+      <p style="opacity:.7">Fecha servidor (UTC): ${new Date().toISOString()}</p>
+    `;
+    return send({ to, subject, text, html });
   }
 
-  return { notifyWin };
+  async function notifyClaim({ numeroGanador, contacto, ip, coupon }) {
+    const to = (process.env.MAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean);
+    const code = coupon?.code || '(no emitido)';
+    const exp  = coupon?.expiresAt ? new Date(coupon.expiresAt).toISOString() : '-';
+
+    const subject = `🍕 Reclamo de premio – Nº ${numeroGanador}`;
+    const text = `Se reclamó el número ganador ${numeroGanador}.
+Contacto: ${contacto || '-'}
+Cupón: ${code}
+Vence: ${exp}
+IP: ${ip || '-'}
+Fecha servidor (UTC): ${new Date().toISOString()}`;
+    const html = `
+      <h2>🍕 Reclamo de premio</h2>
+      <p><strong>Número ganador:</strong> ${numeroGanador}</p>
+      <p><strong>Contacto:</strong> ${contacto || '-'}</p>
+      <p><strong>Cupón:</strong> ${code}</p>
+      <p><strong>Vence:</strong> ${exp}</p>
+      <p><strong>IP:</strong> ${ip || '-'}</p>
+      <p style="opacity:.7">Fecha servidor (UTC): ${new Date().toISOString()}</p>
+    `;
+    return send({ to, subject, text, html });
+  }
+
+  return { notifyWin, notifyClaim, _transporter: transporter };
 })();
 
 /*-------------- 1. CONFIGURACIÓN DE LA BD -------------------------*/
@@ -254,8 +318,8 @@ function startServer () {
       const lockedUntil   = await getLock();
       res.json({
         numeroGanador,
-        lockedUntil,                 // puede ser null o fecha
-        now: new Date().toISOString()// hora del servidor (node) en ISO
+        lockedUntil,                  // puede ser null o fecha
+        now: new Date().toISOString() // hora del servidor (node) en ISO
       });
     } catch (e) { res.status(500).json(e); }
   });
@@ -343,10 +407,10 @@ function startServer () {
         ip
       });
 
-      // 5) Si gana, bloquear (LOCK_MINUTES), log y (si aplica) email
+      // 5) Si gana, bloquear (LOCK_MINUTES), log y email
       let lockedUntil = null;
       if (esGanador) {
-        const applied = await setLock();     // 1 si aplicó el lock
+        const applied = await setLock();     // 1 si aplicó el lock (informativo)
         lockedUntil   = await getLock();
 
         await logEvent({
@@ -357,13 +421,20 @@ function startServer () {
           ip
         });
 
-        if (applied === 1 && mailer) {
-          mailer.notifyWin({ numeroGanador, intento, ip, lockedUntil }).catch(() => {});
+        console.log('[win]', { numeroGanador, intento, ip, applied, lockedUntil });
+
+        if (mailer) {
+          // email SIEMPRE que haya win (independiente de applied)
+          mailer.notifyWin({ numeroGanador, intento, ip, lockedUntil })
+            .catch(err => console.warn('[win][email] error:', err?.message || err));
+        } else {
+          console.log('[win] mailer no activo.');
         }
       }
 
       res.json({ intento, numeroGanador, esGanador, lockedUntil });
     } catch (e) {
+      console.warn('[intentar] error:', e?.message || e);
       res.status(500).json(e);
     }
   });
@@ -450,6 +521,23 @@ function startServer () {
         console.log('ℹ️  Integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).');
       }
 
+      // ✉️ Email a admin con los datos del reclamo
+      if (mailer) {
+        const couponForEmail = couponResp && {
+          code:      couponResp.code || couponResp.coupon?.code || null,
+          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
+        };
+        console.log('[claim] enviando email…', { numero: g.numero, contacto, couponForEmail });
+        mailer.notifyClaim({
+          numeroGanador: g.numero,
+          contacto,
+          ip,
+          coupon: couponForEmail
+        }).catch(err => console.warn('[claim][email] error:', err?.message || err));
+      } else {
+        console.log('[claim] mailer no activo.');
+      }
+
       // generar nuevo número (independiente del cupón)
       const nuevo = Math.floor(Math.random() * 900) + 100;
       await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [nuevo]);
@@ -464,7 +552,10 @@ function startServer () {
         },
         couponError: couponErr
       });
-    } catch (e) { res.status(500).json(e); }
+    } catch (e) {
+      console.warn('[reclamar] error:', e?.message || e);
+      res.status(500).json(e);
+    }
   });
 
   /* ------- MARCAR ENTREGA ------- */
@@ -493,3 +584,11 @@ function startServer () {
     console.log(`🚀 Servidor ${NODE_ENV} corriendo en http://localhost:${PORT}`)
   );
 }
+
+/* --------- Logs globales de errores no atrapados --------- */
+process.on('unhandledRejection', (r) => {
+  console.warn('[unhandledRejection]', r?.message || r);
+});
+process.on('uncaughtException', (e) => {
+  console.warn('[uncaughtException]', e?.message || e);
+});
