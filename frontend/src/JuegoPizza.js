@@ -12,13 +12,9 @@ const API_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
 /* ===== Alternancia robusta de destino (1:1 global por dispositivo) ===== */
 const TIKTOK_URL    = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
-// Si quieres usar el mismo handle del footer, cambia al que prefieras
 const INSTAGRAM_URL = "https://www.mycrushpizza.com/venta";
 
-/* Nuevo esquema: contador + lock
-   - mcp_redirect_seq: 0,1,2,3,... (pares→TikTok, impares→Instagram)
-   - mcp_redirect_lock: evita colisiones entre pestañas simultáneas
-*/
+/* Nuevo esquema: contador + lock */
 const REDIRECT_SEQ_KEY  = "mcp_redirect_seq";
 const REDIRECT_LOCK_KEY = "mcp_redirect_lock";
 
@@ -30,26 +26,21 @@ async function withLocalStorageLock(fn, { timeoutMs = 700 } = {}) {
   while (Date.now() - start < timeoutMs) {
     try {
       localStorage.setItem(REDIRECT_LOCK_KEY, token);
-      // cede el turno para que otras pestañas puedan escribir si les toca
       await new Promise(r => setTimeout(r, 0));
       if (localStorage.getItem(REDIRECT_LOCK_KEY) === token) {
         try {
           return await fn();
         } finally {
-          // libera el lock solo si sigue siendo nuestro
           if (localStorage.getItem(REDIRECT_LOCK_KEY) === token) {
             localStorage.removeItem(REDIRECT_LOCK_KEY);
           }
         }
       }
     } catch {
-      // storage no disponible (modo incognito duro / bloqueado)
       break;
     }
-    // pequeño backoff aleatorio
     await new Promise(r => setTimeout(r, 15 + Math.random() * 35));
   }
-  // Fallback sin lock: reparte 50/50 para no sesgar
   return await fn();
 }
 
@@ -64,7 +55,6 @@ async function getNextRedirectUrl() {
       return nextUrl;
     });
   } catch {
-    // storage no disponible → alterna aleatorio
     return Math.random() < 0.5 ? TIKTOK_URL : INSTAGRAM_URL;
   }
 }
@@ -109,13 +99,14 @@ export default function JuegoPizza() {
   const [showCookies, setShowCookies] = useState(
     () => !localStorage.getItem("mcp_cookiesConsent")
   );
-const SALES_URL = "https://www.mycrushpizza.com/venta";
 
-function goToSalesWithCoupon(code){
-  const url = new URL(SALES_URL);
-  url.searchParams.set("coupon", code); // el checkout puede leer ?coupon=
-  window.location.href = url.toString(); // misma pestaña
-}
+  const SALES_URL = "https://www.mycrushpizza.com/venta";
+  function goToSalesWithCoupon(code) {
+    const url = new URL(SALES_URL);
+    url.searchParams.set("coupon", code);
+    window.location.href = url.toString();
+  }
+
   /* Inicializa el contador si no existe (para que la primera sea TikTok) */
   useEffect(() => {
     try {
@@ -123,9 +114,13 @@ function goToSalesWithCoupon(code){
       if (!Number.isInteger(parseInt(raw, 10))) {
         localStorage.setItem(REDIRECT_SEQ_KEY, "0");
       }
-      // Limpieza del esquema viejo si existiera
       localStorage.removeItem("mcp_redirect_toggle");
     } catch {}
+  }, []);
+
+  /* Log de arranque para depurar entorno */
+  useEffect(() => {
+    console.log("[boot] API_BASE =", API_BASE);
   }, []);
 
   /* ---------------- Carga del número ganador + estado bloqueo ------------- */
@@ -134,6 +129,7 @@ function goToSalesWithCoupon(code){
       .get(`${API_BASE}/estado`)
       .then((res) => {
         const { numeroGanador, lockedUntil, now } = res.data || {};
+        console.log("[/estado]", res.data);
         if (numeroGanador != null) setNumeroGanador(numeroGanador);
 
         if (now) {
@@ -149,7 +145,10 @@ function goToSalesWithCoupon(code){
       .catch((err) => {
         axios
           .get(`${API_BASE}/ganador`)
-          .then((r) => setNumeroGanador(r.data.numeroGanador))
+          .then((r) => {
+            console.log("[/ganador]", r.data);
+            setNumeroGanador(r.data.numeroGanador);
+          })
           .catch((e) => console.error("Error estado/ganador:", e || err));
       });
   }, []);
@@ -174,6 +173,7 @@ function goToSalesWithCoupon(code){
     axios
       .get(`${API_BASE}/estado`)
       .then(({ data }) => {
+        console.log("[revalida estado]", data);
         if (data.lockedUntil) {
           setLockedUntil(data.lockedUntil);
         } else {
@@ -205,6 +205,8 @@ function goToSalesWithCoupon(code){
 
     try {
       const { data } = await axios.post(`${API_BASE}/intentar`);
+      console.log("[/intentar] resp:", data);
+
       setIntento(data.intento);
       setEsGanador(Boolean(data.esGanador));
 
@@ -213,7 +215,6 @@ function goToSalesWithCoupon(code){
         if (left === 0 && !data.esGanador) {
           (async () => {
             const url = await getNextRedirectUrl();
-            // assign en lugar de href para respetar historia
             setTimeout(() => window.location.assign(url), 2000);
           })();
         }
@@ -221,6 +222,7 @@ function goToSalesWithCoupon(code){
       });
 
       if (data.esGanador) {
+        console.log("[WIN] abrir modal; lockedUntil:", data.lockedUntil);
         setMensaje("🎉 ¡Ganaste una pizza!");
         if (data.lockedUntil) {
           setLockedUntil(data.lockedUntil);
@@ -253,6 +255,14 @@ function goToSalesWithCoupon(code){
     }
   };
 
+  /* Extra: asegura que al cambiar esGanador se abra el modal */
+  useEffect(() => {
+    if (esGanador) {
+      console.log("[WIN] setModalAbierto(true) por efecto");
+      setModalAbierto(true);
+    }
+  }, [esGanador]);
+
   /* ------------ RECLAMAR PIZZA --------------- */
   const reclamarPizza = async () => {
     if (!contacto) return alert("Por favor, ingresa un número de contacto.");
@@ -261,6 +271,7 @@ function goToSalesWithCoupon(code){
 
     try {
       const { data } = await axios.post(`${API_BASE}/reclamar`, { contacto });
+      console.log("[/reclamar] resp:", data);
 
       if (data.couponIssued && data.coupon?.code) {
         setCoupon({
@@ -295,7 +306,7 @@ function goToSalesWithCoupon(code){
     <div className="container">
       {/* --------- MODAL BASES LEGALES --------- */}
       {showTerms && (
-        <div className="overlay">
+        <div className="overlay" style={{ zIndex: 150000 }}>
           <div className="modal-legal">
             <h2 className="pulse-heading">Antes de jugar</h2>
             <p>
@@ -310,7 +321,7 @@ function goToSalesWithCoupon(code){
 
       {/* --------- MODAL BLOQUEO (countdown) --------- */}
       {showLockModal && lockedUntil && remainingMs > 0 && !modalAbierto && (
-        <div className="overlay">
+        <div className="overlay" style={{ zIndex: 150000 }}>
           <div className="modal-legal lock-modal">
             <h2 className="lock-title">Juego en pausa ⏳</h2>
             <p className="lock-subtitle">Hace nada hubo un ganador.</p>
@@ -327,7 +338,13 @@ function goToSalesWithCoupon(code){
         </div>
       )}
 
-      {esGanador && <Confetti numberOfPieces={300} />}
+      {/* Confetti no bloquea clics y queda debajo del modal */}
+      {esGanador && (
+        <Confetti
+          numberOfPieces={300}
+          style={{ zIndex: 1, pointerEvents: "none" }}
+        />
+      )}
 
       {/* ======= TARJETA BLANCA: LOGO + NÚMERO ======= */}
       <div className="card">
@@ -371,13 +388,14 @@ function goToSalesWithCoupon(code){
           className="modal"
           role="dialog"
           aria-modal="true"
-          onClick={() => setModalAbierto(false)}
+          onClick={cerrarModalGanador}
+          style={{ zIndex: 200000 }}   // <<— fuerza estar por encima de todo
         >
           <div className="modal-contenido" onClick={(e) => e.stopPropagation()}>
             <button
               className="modal-close"
               aria-label="Cerrar"
-              onClick={() => setModalAbierto(false)}
+              onClick={cerrarModalGanador}
               title="Cerrar"
             >
               ✕
@@ -417,7 +435,7 @@ function goToSalesWithCoupon(code){
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(coupon.code);
-                         setTimeout(() => goToSalesWithCoupon(coupon.code), 80);
+                        setTimeout(() => goToSalesWithCoupon(coupon.code), 80);
                         alert("Código copiado ✅");
                       } catch {}
                     }}
