@@ -6,6 +6,7 @@
  *  – Bloqueo global del juego tras ganar
  *  – 🔗 Emisión de cupón FP en proyecto "ventas" al reclamar premio
  *  – ✉️ Emails con logs: al ganar y al reclamar
+ *  – 🎯 FTW_EVERY: fuerza win cada N intentos globales
  *****************************************************************/
 
 require('dotenv').config();
@@ -22,6 +23,8 @@ const http  = require('http');
 const NODE_ENV  = process.env.NODE_ENV || 'development';
 const PORT      = process.env.PORT     || 8080;
 const FORCE_WIN = process.env.FORCE_WIN === '1';
+// 🎯 FTW: Win garantizado cada N intentos (0 = off)
+const FTW_EVERY = Number(process.env.FTW_EVERY || 0);
 
 /** 🔒 BLOQUEO DEL JUEGO
  *  Queremos bloquear el juego un **minuto** tras un ganador.
@@ -257,6 +260,30 @@ async function logEvent({ evento, intento_valor = null, resultado = null, numero
   }
 }
 
+/* 🎯 FTW helper: intentos desde el último win */
+async function getAttemptsSinceLastWin() {
+  try {
+    const [[lastWin]] = await db.query(
+      `SELECT id FROM juego_historial
+        WHERE evento='win'
+        ORDER BY id DESC
+        LIMIT 1`
+    );
+    const lastWinId = lastWin ? lastWin.id : 0;
+
+    const [[cnt]] = await db.query(
+      `SELECT COUNT(*) AS c
+         FROM juego_historial
+        WHERE evento='attempt' AND id > ?`,
+      [lastWinId]
+    );
+    return Number(cnt.c || 0);
+  } catch (e) {
+    console.warn('⚠️ getAttemptsSinceLastWin error:', e.code || e.message);
+    return 0; // falla segura
+  }
+}
+
 /* ---------- 🔗 VENTAS: cliente HTTP JSON + idempotencia ---------- */
 function postJson(urlStr, payload, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -393,18 +420,35 @@ function startServer () {
       }
 
       // 3) Intento y resultado
+      // --- FTW: fuerza win cada N intentos globales desde el último 'win' ---
+      const attemptsSinceWin = await getAttemptsSinceLastWin();
+      const forceByEveryN = FTW_EVERY > 0 && ((attemptsSinceWin + 1) % FTW_EVERY === 0);
+
       let intento = Math.floor(Math.random() * 900) + 100;
-      if (FORCE_WIN) intento = numeroGanador; // modo prueba
+      if (FORCE_WIN || forceByEveryN) intento = numeroGanador;
 
       const esGanador = intento === numeroGanador;
 
-      // 4) Log attempt
+      // 4) Log attempt (añadimos contexto FTW en extra)
       await logEvent({
         evento: 'attempt',
         intento_valor: intento,
         resultado: esGanador ? 'win' : 'lose',
         numero_ganador: numeroGanador,
-        ip
+        ip,
+        extra: {
+          ftw: {
+            enabled: FTW_EVERY > 0,
+            every: FTW_EVERY,
+            attemptsSinceWin,
+            forced: !!(FORCE_WIN || forceByEveryN)
+          }
+        }
+      });
+
+      console.log('[attempt]', {
+        intento, esGanador, numeroGanador,
+        FTW_EVERY, attemptsSinceWin, forceByEveryN, FORCE_WIN
       });
 
       // 5) Si gana, bloquear (LOCK_MINUTES), log y email
@@ -420,6 +464,20 @@ function startServer () {
           numero_ganador: numeroGanador,
           ip
         });
+
+        // Auditoría FTW explícita
+        if (FORCE_WIN || forceByEveryN) {
+          await logEvent({
+            evento: 'ftw_win',
+            resultado: 'ok',
+            numero_ganador: numeroGanador,
+            ip,
+            extra: {
+              reason: FORCE_WIN ? 'FORCE_WIN' : `EVERY_${FTW_EVERY}`,
+              attemptsSinceWin
+            }
+          });
+        }
 
         console.log('[win]', { numeroGanador, intento, ip, applied, lockedUntil });
 
@@ -577,6 +635,7 @@ function startServer () {
     });
 
     console.log(`🧪 Modo prueba FORCE_WIN=${FORCE_WIN ? 'ON' : 'OFF'}`);
+    console.log(`🎯 FTW_EVERY=${FTW_EVERY || 0}`);
   }
 
   /* ------------------- ARRANQUE ------------------- */
