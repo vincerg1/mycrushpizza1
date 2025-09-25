@@ -6,7 +6,7 @@
  *  – Bloqueo global del juego tras ganar
  *  – 🔗 Emisión de cupón FP en proyecto "ventas" al reclamar premio
  *  – ✉️ Emails con logs: al ganar y al reclamar
- *  – 🎯 FTW_EVERY: fuerza win cada N intentos globales
+ *  – 🎯 FTW_EVERY: fuerza la victoria cada N intentos (persistente en BD)
  *****************************************************************/
 
 require('dotenv').config();
@@ -20,32 +20,27 @@ const { URL } = require('url');
 const https = require('https');
 const http  = require('http');
 
-const NODE_ENV  = process.env.NODE_ENV || 'development';
-const PORT      = process.env.PORT     || 8080;
-const FORCE_WIN = process.env.FORCE_WIN === '1';
-// 🎯 FTW: Win garantizado cada N intentos (0 = off)
-const FTW_EVERY = Number(process.env.FTW_EVERY || 0);
+const NODE_ENV   = process.env.NODE_ENV || 'development';
+const PORT       = process.env.PORT     || 8080;
+const FORCE_WIN  = process.env.FORCE_WIN === '1';
+const FTW_EVERY  = Number(process.env.FTW_EVERY || 0); // 0 = desactivado
 
-/** 🔒 BLOQUEO DEL JUEGO
- *  Queremos bloquear el juego un **minuto** tras un ganador.
- *  Se puede ajustar con la env LOCK_MINUTES (por defecto 1).
- */
+/** 🔒 BLOQUEO DEL JUEGO */
 const LOCK_MINUTES = Number(
   process.env.LOCK_MINUTES !== undefined ? process.env.LOCK_MINUTES : 1
-); // ← por defecto 1 minuto
+);
 
 /* ---------- 🔗 VENTAS: Config de integración ---------- */
 const SALES = {
-  base     : (process.env.SALES_API_URL || '').trim(),       // ej. https://mycrushpizza-parche-production.up.railway.app
-  key      : (process.env.SALES_API_KEY || '').trim(),       // clave compartida
+  base     : (process.env.SALES_API_URL || '').trim(),
+  key      : (process.env.SALES_API_KEY || '').trim(),
   issuePath: process.env.SALES_COUPON_PATH || '/api/coupons/issue',
-  /** ⏱️ Vida del cupón (horas). Por defecto 24 h. */
   hours    : Number(
               process.env.SALES_COUPON_HOURS_TO_EXPIRY !== undefined
                 ? process.env.SALES_COUPON_HOURS_TO_EXPIRY
                 : 24
             ),
-  tenant   : process.env.TENANT_ID || null,                  // opcional
+  tenant   : process.env.TENANT_ID || null,
 };
 const salesEnabled = !!(SALES.base && SALES.key);
 
@@ -59,7 +54,6 @@ const mailer = (() => {
   const from   = process.env.MAIL_FROM || user || 'noreply@local';
   const debug  = process.env.MAIL_DEBUG === '1';
 
-  // helper para logs con prefijo y timestamp
   const ts   = () => new Date().toISOString();
   const log  = (...a) => console.log(`[mailer ${ts()}]`, ...a);
   const warn = (...a) => console.warn(`[mailer ${ts()}]`, ...a);
@@ -69,31 +63,18 @@ const mailer = (() => {
     return null;
   }
 
-  // No revelamos el pass
   log('config:', {
-    host,
-    port,
-    secure,
-    user,
-    from,
+    host, port, secure, user, from,
     to: (process.env.MAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean),
     debug
   });
 
   const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-    pool: true,            // conexiones reusadas
-    maxConnections: 3,
-    maxMessages: 50,
-    logger: !!debug,       // logs internos de nodemailer
-    debug : !!debug
-    // tls: { rejectUnauthorized: false } // (usar solo si el hosting rompe TLS)
+    host, port, secure, auth: { user, pass },
+    pool: true, maxConnections: 3, maxMessages: 50,
+    logger: !!debug, debug: !!debug
   });
 
-  // prueba de conexión al arrancar
   transporter.verify()
     .then(() => log('SMTP verify: ✅ conexión ok'))
     .catch((err) => warn('SMTP verify: ❌', err?.message || err));
@@ -104,7 +85,6 @@ const mailer = (() => {
       return null;
     }
     log('enviando…', { subject, to });
-
     try {
       const info = await transporter.sendMail({ from, to, subject, text, html });
       log('enviado ✅', { messageId: info?.messageId, response: info?.response });
@@ -175,6 +155,7 @@ const cfg = {
 const safe = { ...cfg, password: cfg.password ? '***' + cfg.password.slice(-4) : undefined };
 console.log('🔍 Variables de conexión detectadas:');
 console.table(safe);
+console.log('🎯 FTW_EVERY =', FTW_EVERY, '| FORCE_WIN =', FORCE_WIN);
 
 /*-------------- 2. CREAR EL POOL Y PROBAR CONEXIÓN ---------------*/
 let db;
@@ -208,6 +189,21 @@ let db;
     // Seguridad: asegurar fila única en juego_estado (id=1)
     await db.query('INSERT IGNORE INTO juego_estado (id) VALUES (1)');
 
+    // 🎯 Columna contador FTW (idempotente)
+    try {
+      await db.query('ALTER TABLE juego_estado ADD COLUMN IF NOT EXISTS ftw_counter BIGINT NOT NULL DEFAULT 0');
+    } catch (e) {
+      // Algunos MySQL viejos no soportan IF NOT EXISTS; intentamos a mano
+      try {
+        const [cols] = await db.query("SHOW COLUMNS FROM juego_estado LIKE 'ftw_counter'");
+        if (!cols.length) {
+          await db.query('ALTER TABLE juego_estado ADD COLUMN ftw_counter BIGINT NOT NULL DEFAULT 0');
+        }
+      } catch (e2) {
+        console.warn('⚠️ No se pudo asegurar ftw_counter:', e2.code || e2.message);
+      }
+    }
+
     startServer();
   } catch (err) {
     console.error('❌ No se pudo conectar a MySQL:', err.code || err.message);
@@ -239,15 +235,23 @@ async function setLock(minutes = LOCK_MINUTES) {
        AND (lock_until IS NULL OR lock_until < UTC_TIMESTAMP())`,
     [minutes]
   );
-  return r.affectedRows; // 1 si aplicó el lock, 0 si ya estaba bloqueado
+  return r.affectedRows;
 }
 
 async function clearLock() {
   await db.query('UPDATE juego_estado SET lock_until = NULL WHERE id = 1');
 }
 
+// ↑ FTW: incrementa contador y dice si toca forzar la victoria
+async function bumpAndCheckFTW() {
+  if (!FTW_EVERY || FTW_EVERY <= 0) return { hit: false, count: null };
+  await db.query('UPDATE juego_estado SET ftw_counter = ftw_counter + 1 WHERE id=1');
+  const [[row]] = await db.query('SELECT ftw_counter FROM juego_estado WHERE id=1');
+  const c = Number(row?.ftw_counter || 0);
+  return { hit: c > 0 && c % FTW_EVERY === 0, count: c };
+}
+
 // Nota: esta versión asume columna "extra" (JSON) en juego_historial.
-// Si aún no la tienes, elimina el campo "extra" del INSERT.
 async function logEvent({ evento, intento_valor = null, resultado = null, numero_ganador = null, ip = null, extra = null }) {
   try {
     await db.query(
@@ -257,30 +261,6 @@ async function logEvent({ evento, intento_valor = null, resultado = null, numero
     );
   } catch (e) {
     console.warn('⚠️  No se pudo escribir en juego_historial:', e.code || e.message);
-  }
-}
-
-/* 🎯 FTW helper: intentos desde el último win */
-async function getAttemptsSinceLastWin() {
-  try {
-    const [[lastWin]] = await db.query(
-      `SELECT id FROM juego_historial
-        WHERE evento='win'
-        ORDER BY id DESC
-        LIMIT 1`
-    );
-    const lastWinId = lastWin ? lastWin.id : 0;
-
-    const [[cnt]] = await db.query(
-      `SELECT COUNT(*) AS c
-         FROM juego_historial
-        WHERE evento='attempt' AND id > ?`,
-      [lastWinId]
-    );
-    return Number(cnt.c || 0);
-  } catch (e) {
-    console.warn('⚠️ getAttemptsSinceLastWin error:', e.code || e.message);
-    return 0; // falla segura
   }
 }
 
@@ -295,11 +275,7 @@ function postJson(urlStr, payload, headers = {}) {
       port: u.port || (isHttps ? 443 : 80),
       path: u.pathname + (u.search || ''),
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
-        ...headers
-      },
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...headers },
       timeout: 8000
     };
     const req = (isHttps ? https : http).request(options, (res) => {
@@ -308,11 +284,8 @@ function postJson(urlStr, payload, headers = {}) {
       res.on('end', () => {
         let json = null;
         try { json = raw ? JSON.parse(raw) : null; } catch { /* noop */ }
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve({ status: res.statusCode, data: json });
-        } else {
-          reject(new Error(`HTTP ${res.statusCode}: ${raw || '(sin cuerpo)'}`));
-        }
+        if (res.statusCode >= 200 && res.statusCode < 300) resolve({ status: res.statusCode, data: json });
+        else reject(new Error(`HTTP ${res.statusCode}: ${raw || '(sin cuerpo)'}`));
       });
     });
     req.on('error', reject);
@@ -343,11 +316,7 @@ function startServer () {
     try {
       const numeroGanador = await getWinnerNumber();
       const lockedUntil   = await getLock();
-      res.json({
-        numeroGanador,
-        lockedUntil,                  // puede ser null o fecha
-        now: new Date().toISOString() // hora del servidor (node) en ISO
-      });
+      res.json({ numeroGanador, lockedUntil, now: new Date().toISOString() });
     } catch (e) { res.status(500).json(e); }
   });
 
@@ -401,7 +370,7 @@ function startServer () {
     } catch (e) { res.status(500).json(e); }
   });
 
-  /* ------- INTENTAR GANAR (con bloqueo y log) ------- */
+  /* ------- INTENTAR GANAR (con bloqueo, FTW y log) ------- */
   app.post('/intentar', async (req, res) => {
     const ip = getClientIp(req);
 
@@ -419,42 +388,39 @@ function startServer () {
         return res.status(400).json({ message: 'No hay número ganador generado aún' });
       }
 
-      // 3) Intento y resultado
-      // --- FTW: fuerza win cada N intentos globales desde el último 'win' ---
-      const attemptsSinceWin = await getAttemptsSinceLastWin();
-      const forceByEveryN = FTW_EVERY > 0 && ((attemptsSinceWin + 1) % FTW_EVERY === 0);
-
+      // 3) Intento y FTW
       let intento = Math.floor(Math.random() * 900) + 100;
-      if (FORCE_WIN || forceByEveryN) intento = numeroGanador;
+      let forcedReason = null;
+      let ftwCount = null;
+
+      if (FORCE_WIN) {
+        intento = numeroGanador;
+        forcedReason = 'FORCE_WIN';
+      } else {
+        const { hit, count } = await bumpAndCheckFTW();
+        ftwCount = count;
+        if (hit) {
+          intento = numeroGanador;
+          forcedReason = `FTW_EVERY_${FTW_EVERY}`;
+        }
+      }
 
       const esGanador = intento === numeroGanador;
 
-      // 4) Log attempt (añadimos contexto FTW en extra)
+      // 4) Log attempt
       await logEvent({
         evento: 'attempt',
         intento_valor: intento,
         resultado: esGanador ? 'win' : 'lose',
         numero_ganador: numeroGanador,
         ip,
-        extra: {
-          ftw: {
-            enabled: FTW_EVERY > 0,
-            every: FTW_EVERY,
-            attemptsSinceWin,
-            forced: !!(FORCE_WIN || forceByEveryN)
-          }
-        }
-      });
-
-      console.log('[attempt]', {
-        intento, esGanador, numeroGanador,
-        FTW_EVERY, attemptsSinceWin, forceByEveryN, FORCE_WIN
+        extra: forcedReason ? { forcedReason, ftwCount } : { ftwCount }
       });
 
       // 5) Si gana, bloquear (LOCK_MINUTES), log y email
       let lockedUntil = null;
       if (esGanador) {
-        const applied = await setLock();     // 1 si aplicó el lock (informativo)
+        const applied = await setLock();
         lockedUntil   = await getLock();
 
         await logEvent({
@@ -462,27 +428,13 @@ function startServer () {
           intento_valor: intento,
           resultado: 'win',
           numero_ganador: numeroGanador,
-          ip
+          ip,
+          extra: forcedReason ? { forcedReason, ftwCount, applied } : { applied, ftwCount }
         });
 
-        // Auditoría FTW explícita
-        if (FORCE_WIN || forceByEveryN) {
-          await logEvent({
-            evento: 'ftw_win',
-            resultado: 'ok',
-            numero_ganador: numeroGanador,
-            ip,
-            extra: {
-              reason: FORCE_WIN ? 'FORCE_WIN' : `EVERY_${FTW_EVERY}`,
-              attemptsSinceWin
-            }
-          });
-        }
-
-        console.log('[win]', { numeroGanador, intento, ip, applied, lockedUntil });
+        console.log('[win]', { numeroGanador, intento, ip, applied, lockedUntil, forcedReason, ftwCount });
 
         if (mailer) {
-          // email SIEMPRE que haya win (independiente de applied)
           mailer.notifyWin({ numeroGanador, intento, ip, lockedUntil })
             .catch(err => console.warn('[win][email] error:', err?.message || err));
         } else {
@@ -519,7 +471,6 @@ function startServer () {
         [contacto, g.id]
       );
 
-      // LOG: claim
       await logEvent({
         evento: 'claim',
         resultado: 'ok',
@@ -528,14 +479,13 @@ function startServer () {
         extra: { contacto }
       });
 
-      /* ---------- 🔗 VENTAS: emitir cupón FP (24 h por defecto) ---------- */
+      /* ---------- 🔗 VENTAS: emitir cupón FP ---------- */
       let couponResp = null;
       let couponErr  = null;
 
       if (salesEnabled) {
         const url  = salesUrl(SALES.issuePath);
-        const idem = `claim-${g.id}`; // idempotencia por reclamo
-
+        const idem = `claim-${g.id}`;
         const hoursForCoupon = Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
 
         const payload = {
@@ -554,7 +504,6 @@ function startServer () {
           });
           couponResp = data || null;
 
-          // LOG OK
           await logEvent({
             evento: 'coupon_issue',
             resultado: 'ok',
@@ -566,7 +515,6 @@ function startServer () {
           couponErr = err.message || String(err);
           console.warn('⚠️  Emisión de cupón en VENTAS falló:', couponErr);
 
-          // LOG FAIL
           await logEvent({
             evento: 'coupon_issue',
             resultado: 'fail',
@@ -596,7 +544,7 @@ function startServer () {
         console.log('[claim] mailer no activo.');
       }
 
-      // generar nuevo número (independiente del cupón)
+      // generar nuevo número
       const nuevo = Math.floor(Math.random() * 900) + 100;
       await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [nuevo]);
 
@@ -627,15 +575,23 @@ function startServer () {
 
   /* ------- Herramientas de desarrollo ------- */
   if (NODE_ENV !== 'production') {
-    // limpiar bloqueo para pruebas rápidas
     app.post('/__dev__/unlock', async (_, res) => {
       await clearLock();
       const lock = await getLock();
       res.json({ message: 'Bloqueo limpiado', lockedUntil: lock });
     });
 
-    console.log(`🧪 Modo prueba FORCE_WIN=${FORCE_WIN ? 'ON' : 'OFF'}`);
-    console.log(`🎯 FTW_EVERY=${FTW_EVERY || 0}`);
+    // Reset contador FTW (solo dev)
+    app.post('/__dev__/ftw/reset', async (_, res) => {
+      try {
+        await db.query('UPDATE juego_estado SET ftw_counter = 0 WHERE id=1');
+        res.json({ ok: true, ftw_counter: 0 });
+      } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+      }
+    });
+
+    console.log(`🧪 Modo prueba FORCE_WIN=${FORCE_WIN ? 'ON' : 'OFF'} | FTW_EVERY=${FTW_EVERY}`);
   }
 
   /* ------------------- ARRANQUE ------------------- */
