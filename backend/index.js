@@ -450,199 +450,119 @@ function startServer () {
   });
 
   /* ------- RECLAMAR PREMIO (log claim + 🔗 emitir cupón en VENTAS) ------- */
-app.post('/reclamar', async (req, res) => {
-  const { contacto } = req.body;
-  const ip = getClientIp(req);
+  app.post('/reclamar', async (req, res) => {
+    const { contacto } = req.body;
+    const ip = getClientIp(req);
 
-  try {
-    // último ganador no reclamado
-    const [[g]] = await db.query(
-      'SELECT id, numero FROM ganador WHERE reclamado = 0 ORDER BY id DESC LIMIT 1'
-    );
-    if (!g)
-      return res.status(400).json({ message: 'No hay número ganador activo para reclamar' });
+    try {
+      // último ganador no reclamado
+      const [[g]] = await db.query(
+        'SELECT id, numero FROM ganador WHERE reclamado = 0 ORDER BY id DESC LIMIT 1'
+      );
+      if (!g)
+        return res.status(400).json({ message: 'No hay número ganador activo para reclamar' });
 
-    await db.query(
-      `UPDATE ganador
-          SET reclamado = 1,
-              contacto = ?,
-              reclamado_en = CURRENT_TIMESTAMP
-        WHERE id = ?`,
-      [contacto, g.id]
-    );
+      await db.query(
+        `UPDATE ganador
+            SET reclamado = 1,
+                contacto = ?,
+                reclamado_en = CURRENT_TIMESTAMP
+          WHERE id = ?`,
+        [contacto, g.id]
+      );
 
-    await logEvent({
-      evento: 'claim',
-      resultado: 'ok',
-      numero_ganador: g.numero,
-      ip,
-      extra: { contacto }
-    });
-
-    /* ---------- 🔗 VENTAS: emitir cupón desde pool del juego ---------- */
-    let couponResp = null;
-    let couponErr  = null;
-
-    if (salesEnabled) {
-      const url  = salesUrl('/api/coupons/issue-game'); // ← NUEVO endpoint
-      const idem = `claim-${g.id}`;
-      const hoursForCoupon = Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
-
-      const payload = {
-        hours: hoursForCoupon,
-        channel: 'GAME',                                   // pool: canal del juego
-        gameId: Number(process.env.GAME_ID || 1),          // pool: juego concreto (ajusta por ENV)
-        source: 'game',
-        gameNumber: g.numero,
-        contact: contacto,
-        tenant: SALES.tenant
-      };
-
-      try {
-        const { data } = await postJson(url, payload, {
-          'x-api-key': SALES.key,
-          'x-idempotency-key': idem
-        });
-        couponResp = data || null;
-
-        await logEvent({
-          evento: 'coupon_issue',
-          resultado: 'ok',
-          numero_ganador: g.numero,
-          ip,
-          extra: { idem, returned: couponResp }
-        });
-      } catch (err) {
-        couponErr = err.message || String(err);
-        console.warn('⚠️  Emisión de cupón en VENTAS falló:', couponErr);
-
-        await logEvent({
-          evento: 'coupon_issue',
-          resultado: 'fail',
-          numero_ganador: g.numero,
-          ip,
-          extra: { idem, error: couponErr }
-        });
-      }
-    } else {
-      console.log('ℹ️  Integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).');
-    }
-
-    // ✉️ Email a admin con los datos del reclamo
-    if (mailer) {
-      const couponForEmail = couponResp && {
-        code:      couponResp.code || couponResp.coupon?.code || null,
-        expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
-      };
-      console.log('[claim] enviando email…', { numero: g.numero, contacto, couponForEmail });
-      mailer.notifyClaim({
-        numeroGanador: g.numero,
-        contacto,
+      await logEvent({
+        evento: 'claim',
+        resultado: 'ok',
+        numero_ganador: g.numero,
         ip,
-        coupon: couponForEmail
-      }).catch(err => console.warn('[claim][email] error:', err?.message || err));
-    } else {
-      console.log('[claim] mailer no activo.');
+        extra: { contacto }
+      });
+
+      /* ---------- 🔗 VENTAS: emitir cupón FP ---------- */
+      let couponResp = null;
+      let couponErr  = null;
+
+      if (salesEnabled) {
+        const url  = salesUrl(SALES.issuePath);
+        const idem = `claim-${g.id}`;
+        const hoursForCoupon = Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
+
+        const payload = {
+          hours: hoursForCoupon,
+          prefix: 'MCP-FP',
+          source: 'game',
+          gameNumber: g.numero,
+          contact: contacto,
+          tenant: SALES.tenant
+        };
+
+        try {
+          const { data } = await postJson(url, payload, {
+            'x-api-key': SALES.key,
+            'x-idempotency-key': idem
+          });
+          couponResp = data || null;
+
+          await logEvent({
+            evento: 'coupon_issue',
+            resultado: 'ok',
+            numero_ganador: g.numero,
+            ip,
+            extra: { idem, returned: couponResp }
+          });
+        } catch (err) {
+          couponErr = err.message || String(err);
+          console.warn('⚠️  Emisión de cupón en VENTAS falló:', couponErr);
+
+          await logEvent({
+            evento: 'coupon_issue',
+            resultado: 'fail',
+            numero_ganador: g.numero,
+            ip,
+            extra: { idem, error: couponErr }
+          });
+        }
+      } else {
+        console.log('ℹ️  Integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).');
+      }
+
+      // ✉️ Email a admin con los datos del reclamo
+      if (mailer) {
+        const couponForEmail = couponResp && {
+          code:      couponResp.code || couponResp.coupon?.code || null,
+          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
+        };
+        console.log('[claim] enviando email…', { numero: g.numero, contacto, couponForEmail });
+        mailer.notifyClaim({
+          numeroGanador: g.numero,
+          contacto,
+          ip,
+          coupon: couponForEmail
+        }).catch(err => console.warn('[claim][email] error:', err?.message || err));
+      } else {
+        console.log('[claim] mailer no activo.');
+      }
+
+      // generar nuevo número
+      const nuevo = Math.floor(Math.random() * 900) + 100;
+      await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [nuevo]);
+
+      res.json({
+        message: 'Premio reclamado y nuevo número generado 🎊',
+        nuevoNumeroGanador: nuevo,
+        couponIssued: !!couponResp,
+        coupon: couponResp && {
+          code: couponResp.code || couponResp.coupon?.code || null,
+          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
+        },
+        couponError: couponErr
+      });
+    } catch (e) {
+      console.warn('[reclamar] error:', e?.message || e);
+      res.status(500).json(e);
     }
-
-    // generar nuevo número
-    const nuevo = Math.floor(Math.random() * 900) + 100;
-    await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [nuevo]);
-
-    res.json({
-      message: 'Premio reclamado y nuevo número generado 🎊',
-      nuevoNumeroGanador: nuevo,
-      couponIssued: !!couponResp,
-      coupon: couponResp && {
-        code: couponResp.code || couponResp.coupon?.code || null,
-        expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
-      },
-      couponError: couponErr
-    });
-  } catch (e) {
-    console.warn('[reclamar] error:', e?.message || e);
-    res.status(500).json(e);
-  }
-});
-
-
-// NUEVO: emitir cupón desde pool de juego (sin prefijos)
-router.post('/issue-game', requireApiKey, async (req, res) => {
-  try {
-    const hours   = Number(req.body.hours || 24);
-    const gameId  = req.body.gameId != null ? Number(req.body.gameId) : null;
-    const channel = (req.body.channel || 'GAME').toUpperCase();
-    if (!Number.isFinite(hours) || hours <= 0) {
-      return res.status(400).json({ error: 'bad_request' });
-    }
-
-    const now = nowInTZ();
-    const expiresAt = new Date(now.getTime() + hours * 3600 * 1000);
-
-    // Busca 1 cupón AMOUNT/FIXED del pool asignado (channel/gameId)
-    const where = {
-      status: 'ACTIVE',
-      kind: 'AMOUNT',
-      variant: 'FIXED',
-      ...(channel ? { channel } : {}),
-      ...(gameId != null ? { gameId } : {}),
-      AND: [
-        { OR: [{ usageLimit: null }, { usedCount: { lt: prisma.coupon.fields.usageLimit } }] },
-        { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-      ],
-    };
-
-    const row = await prisma.coupon.findFirst({
-      where,
-      orderBy: [{ expiresAt: 'asc' }, { id: 'asc' }]
-    });
-
-    if (!row) return res.status(409).json({ error: 'out_of_stock' });
-
-    await prisma.coupon.update({ where: { code: row.code }, data: { expiresAt } });
-
-    // (opcional) SMS igual que en /issue
-    const contact     = String(req.body.contact || '').trim();
-    const gameNumber  = req.body.gameNumber ?? null;
-    const siteUrl     = process.env.COUPON_SITE_URL || 'https://www.mycrushpizza.com';
-    const adminPhone  = process.env.ADMIN_PHONE || '';
-    const whenTxt     = fmtExpiry(expiresAt);
-    const code        = row.code;
-    const notify = { user: { tried:false }, admin: { tried:false } };
-
-    if (contact) {
-      notify.user.tried = true;
-      try {
-        const resp = await sendSMS(contact, `Felicidades 🎉 Cupón: ${code}\nCanjéalo en ${siteUrl}\nVence ${whenTxt}.`);
-        notify.user.ok = true; notify.user.sid = resp.sid;
-      } catch (err) { notify.user.ok = false; notify.user.error = err.message; }
-    }
-    if (adminPhone) {
-      notify.admin.tried = true;
-      try {
-        const resp = await sendSMS(adminPhone, `ALERTA 🎯 Cupón emitido ${code} (vence ${whenTxt}) · Game# ${gameNumber ?? '-'}`);
-        notify.admin.ok = true; notify.admin.sid = resp.sid;
-      } catch (err) { notify.admin.ok = false; notify.admin.error = err.message; }
-    }
-
-    // Respuesta compatible con front del juego
-    return res.json({
-      ok: true,
-      code,
-      kindV2: row.kind,
-      amount: row.amount ? Number(row.amount) : null,
-      percent: null,
-      expiresAt,
-      kind: 'FP',                    // compat legado
-      value: row.amount ? Number(row.amount) : 0,
-      notify
-    });
-  } catch (e) {
-    console.error('[coupons.issue-game] error', e);
-    return res.status(500).json({ error: 'server' });
-  }
-});
-
+  });
 
   /* ------- MARCAR ENTREGA ------- */
   app.post('/actualizar-entrega', async (req, res) => {
