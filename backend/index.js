@@ -250,7 +250,6 @@ async function bumpAndCheckFTW() {
   const c = Number(row?.ftw_counter || 0);
   return { hit: c > 0 && c % FTW_EVERY === 0, count: c };
 }
-
 // Nota: esta versión asume columna "extra" (JSON) en juego_historial.
 async function logEvent({ evento, intento_valor = null, resultado = null, numero_ganador = null, ip = null, extra = null }) {
   try {
@@ -263,7 +262,6 @@ async function logEvent({ evento, intento_valor = null, resultado = null, numero
     console.warn('⚠️  No se pudo escribir en juego_historial:', e.code || e.message);
   }
 }
-
 /* ---------- 🔗 VENTAS: cliente HTTP JSON + idempotencia ---------- */
 function postJson(urlStr, payload, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -294,34 +292,27 @@ function postJson(urlStr, payload, headers = {}) {
     req.end();
   });
 }
-
 function salesUrl(pathname) {
   const base = SALES.base.replace(/\/+$/, '');
   const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
   return `${base}${path}`;
 }
-
-/*-------------- 3. DEFINICIÓN DE ENDPOINTS -----------------------*/
 function startServer () {
   const app = express();
   app.use(cors());
   app.use(express.json());
 
-  app.get('/', async (_, res) =>
+app.get('/', async (_, res) =>
     res.send(`Servidor funcionando correctamente 🚀 (${new Date().toISOString()})`)
-  );
-
-  /* ------- ESTADO (para countdown en frontend) ------- */
-  app.get('/estado', async (_, res) => {
+);
+app.get('/estado', async (_, res) => {
     try {
       const numeroGanador = await getWinnerNumber();
       const lockedUntil   = await getLock();
       res.json({ numeroGanador, lockedUntil, now: new Date().toISOString() });
     } catch (e) { res.status(500).json(e); }
-  });
-
-  /* ------- LISTAR GANADORES RECLAMADOS Y NO ENTREGADOS ------- */
-  app.get('/lista-ganadores', async (_, res) => {
+});
+app.get('/lista-ganadores', async (_, res) => {
     try {
       const [rows] = await db.query(
         `SELECT id, numero
@@ -332,10 +323,8 @@ function startServer () {
       );
       res.json(rows);
     } catch (e) { res.status(500).json(e); }
-  });
-
-  /* ------- VERIFICAR UN NÚMERO ------- */
-  app.get('/verificar/:numero', async (req, res) => {
+});
+app.get('/verificar/:numero', async (req, res) => {
     const { numero } = req.params;
     try {
       const [rows] = await db.query(
@@ -349,29 +338,23 @@ function startServer () {
         return res.status(404).json({ message: 'Número no encontrado o sin reclamar' });
       res.json(rows[0]);
     } catch (e) { res.status(500).json(e); }
-  });
-
-  /* ------- OBTENER Nº GANADOR ACTUAL ------- */
-  app.get('/ganador', async (_, res) => {
+});
+app.get('/ganador', async (_, res) => {
     try {
       const numeroGanador = await getWinnerNumber();
       if (numeroGanador == null)
         return res.status(400).json({ message: 'No hay número ganador generado aún' });
       res.json({ numeroGanador });
     } catch (e) { res.status(500).json(e); }
-  });
-
-  /* ------- GENERAR NUEVO Nº GANADOR ------- */
-  app.post('/generar-ganador', async (_, res) => {
+});
+app.post('/generar-ganador', async (_, res) => {
     const n = Math.floor(Math.random() * 900) + 100; // 100-999
     try {
       await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [n]);
       res.json({ message: 'Número ganador generado 🎉', numeroGanador: n });
     } catch (e) { res.status(500).json(e); }
-  });
-
-  /* ------- INTENTAR GANAR (con bloqueo, FTW y log) ------- */
-  app.post('/intentar', async (req, res) => {
+});
+app.post('/intentar', async (req, res) => {
     const ip = getClientIp(req);
 
     try {
@@ -447,11 +430,9 @@ function startServer () {
       console.warn('[intentar] error:', e?.message || e);
       res.status(500).json(e);
     }
-  });
-
-/* ------- RECLAMAR PREMIO (log claim + 🔗 emitir cupón desde pool del juego) ------- */
+});
 app.post('/reclamar', async (req, res) => {
-  const { contacto } = req.body;
+  const { contacto, customerId, campaign } = req.body; // opcionales
   const ip = getClientIp(req);
 
   try {
@@ -459,16 +440,18 @@ app.post('/reclamar', async (req, res) => {
     const [[g]] = await db.query(
       'SELECT id, numero FROM ganador WHERE reclamado = 0 ORDER BY id DESC LIMIT 1'
     );
-    if (!g)
+    if (!g) {
       return res.status(400).json({ message: 'No hay número ganador activo para reclamar' });
+    }
 
+    // marcar reclamo
     await db.query(
       `UPDATE ganador
           SET reclamado = 1,
               contacto = ?,
               reclamado_en = CURRENT_TIMESTAMP
         WHERE id = ?`,
-      [contacto, g.id]
+      [contacto || null, g.id]
     );
 
     await logEvent({
@@ -476,7 +459,7 @@ app.post('/reclamar', async (req, res) => {
       resultado: 'ok',
       numero_ganador: g.numero,
       ip,
-      extra: { contacto }
+      extra: { contacto: contacto || null }
     });
 
     /* ---------- 🔗 VENTAS: emitir cupón desde pool del juego ---------- */
@@ -484,20 +467,19 @@ app.post('/reclamar', async (req, res) => {
     let couponErr  = null;
 
     if (salesEnabled) {
-      // usa el endpoint específico del pool del juego en VENTAS
-      const url  = salesUrl('/api/coupons/issue-game');
-      const idem = `claim-${g.id}`;
-      const hoursForCoupon = Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
+      const gameId = Number(process.env.GAME_ID || 1);
+      const url    = salesUrl(`/api/coupons/games/${gameId}/issue`);  // ← Opción A
+      const idem   = `claim-${g.id}`;
+      const hoursForCoupon =
+        Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
 
-      // canal y juego que quieras consumir (parametrizable por ENV)
+      // payload aceptado por el backend de Ventas
       const payload = {
         hours: hoursForCoupon,
-        channel: 'GAME',                          // pool: canal del juego
-        gameId: Number(process.env.GAME_ID || 1), // pool: juego concreto
-        source: 'game',
-        gameNumber: g.numero,
-        contact: contacto,
-        tenant: SALES.tenant
+        contact: contacto || undefined,        // SMS opcional en Ventas
+        gameNumber: g.numero,                  // contexto
+        customerId: customerId ? Number(customerId) : undefined,
+        campaign: campaign || process.env.GAME_CAMPAIGN || undefined
       };
 
       try {
@@ -515,7 +497,7 @@ app.post('/reclamar', async (req, res) => {
           extra: { idem, returned: couponResp }
         });
       } catch (err) {
-        couponErr = err.message || String(err);
+        couponErr = err?.message || String(err);
         console.warn('⚠️  Emisión de cupón (pool juego) falló:', couponErr);
 
         await logEvent({
@@ -536,18 +518,15 @@ app.post('/reclamar', async (req, res) => {
         code:      couponResp.code || couponResp.coupon?.code || null,
         expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
       };
-      console.log('[claim] enviando email…', { numero: g.numero, contacto, couponForEmail });
       mailer.notifyClaim({
         numeroGanador: g.numero,
-        contacto,
+        contacto: contacto || null,
         ip,
         coupon: couponForEmail
       }).catch(err => console.warn('[claim][email] error:', err?.message || err));
-    } else {
-      console.log('[claim] mailer no activo.');
     }
 
-    // generar nuevo número
+    // generar nuevo número para la siguiente ronda
     const nuevo = Math.floor(Math.random() * 900) + 100;
     await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [nuevo]);
 
@@ -566,18 +545,14 @@ app.post('/reclamar', async (req, res) => {
     res.status(500).json(e);
   }
 });
-
-
-  /* ------- MARCAR ENTREGA ------- */
-  app.post('/actualizar-entrega', async (req, res) => {
+app.post('/actualizar-entrega', async (req, res) => {
     const { numero } = req.body;
     try {
       await db.query('UPDATE ganador SET entregado = 1 WHERE numero = ?', [numero]);
       res.json({ message: 'Premio marcado como entregado ✔' });
     } catch (e) { res.status(500).json(e); }
-  });
+});
 
-  /* ------- Herramientas de desarrollo ------- */
   if (NODE_ENV !== 'production') {
     app.post('/__dev__/unlock', async (_, res) => {
       await clearLock();
