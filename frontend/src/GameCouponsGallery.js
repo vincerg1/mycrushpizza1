@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 // Backend de VENTAS (mismo que en el backoffice, pero con prefijo REACT_APP_)
 const SALES_API_BASE =
-  (process.env.REACT_APP_SALES_API_URL || "").replace(/\/+$/, "");
+  (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 const SALES_API_KEY = process.env.REACT_APP_SALES_API_KEY || "";
 
 // Llama directamente al endpoint /api/coupons/gallery del portal de ventas
