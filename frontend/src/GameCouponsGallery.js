@@ -1,19 +1,35 @@
-// src/components/GameCouponsGallery.jsx
+// src/components/GameCouponsGallery.js
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE =
-  process.env.REACT_APP_GAME_API_BASE?.replace(/\/+$/, "") || "";
+// Backend de VENTAS (mismo que en el backoffice, pero con prefijo REACT_APP_)
+const SALES_API_BASE =
+  (process.env.REACT_APP_SALES_API_URL || "").replace(/\/+$/, "");
+const SALES_API_KEY = process.env.REACT_APP_SALES_API_KEY || "";
 
-// Endpoint del backend del juego que devuelve la galería por tipo.
-// (podemos mapear desde /api/coupons/gallery del portal de ventas en el backend).
+// Llama directamente al endpoint /api/coupons/gallery del portal de ventas
 async function fetchCouponsGallery() {
-  const res = await fetch(`${API_BASE}/game/coupons-gallery`, {
-    credentials: "include",
+  if (!SALES_API_BASE) {
+    throw new Error("REACT_APP_SALES_API_URL is not configured");
+  }
+
+  const res = await fetch(`${SALES_API_BASE}/api/coupons/gallery`, {
+    method: "GET",
     headers: {
       "Content-Type": "application/json",
-    },
+      ...(SALES_API_KEY ? { "x-api-key": SALES_API_KEY } : {})
+    }
   });
+
+  const contentType = res.headers.get("content-type") || "";
+
+  // Si el servidor devolviera HTML (típico 404 con <!DOCTYPE>), evitamos hacer res.json()
+  if (!contentType.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `Expected JSON but got: ${text.slice(0, 80)}... (check URL / API key)`
+    );
+  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -145,12 +161,7 @@ export default function GameCouponsGallery() {
     setActiveType(type);
   };
 
-  // Más adelante, aquí podemos decidir: si el tipo es "GAME" o tiene acquisition GAME,
-  // lanzar a /play, o abrir una vista detalle de cupones de juego vs gratis.
   const handleTypeAction = (type) => {
-    // Ejemplo simple: si el usuario hace doble click o click en un CTA extra,
-    // podríamos hacer navigate("/play");
-    // Por ahora lo dejamos preparado.
     console.log("Type action clicked:", type);
   };
 
@@ -171,7 +182,7 @@ export default function GameCouponsGallery() {
           <button
             type="button"
             className="gcg-primary"
-            onClick={() => navigate("/play")}
+            onClick={() => navigate("/jugar")}
           >
             Play now
           </button>
@@ -228,8 +239,6 @@ export default function GameCouponsGallery() {
             ))}
           </div>
 
-          {/* Aquí podríamos más adelante poner debajo el detalle de cupones del tipo activo,
-              separado en "gratis" vs "de juego". De momento solo mostramos info del grupo activo. */}
           {activeGroup && (
             <div className="gcg-active-info">
               <h2 className="gcg-active-title">{activeGroup.type}</h2>

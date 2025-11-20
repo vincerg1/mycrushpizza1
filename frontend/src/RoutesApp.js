@@ -1,6 +1,5 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
-
 import GameCouponsGallery from "./GameCouponsGallery";  // salón de ofertas
 import JuegoPizza from "./JuegoPizza";                  // juego Número Ganador
 import VerificacionPremio from "./VerificarPremio";
