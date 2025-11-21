@@ -1,4 +1,3 @@
-// src/components/GameCouponsGallery.js
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -30,7 +29,7 @@ async function fetchCouponsGallery() {
 }
 
 // ──────────────────────────────────────────────
-// Normalización de datos (igual que antes)
+// Normalización de datos
 // ──────────────────────────────────────────────
 function normalizeGalleryData(raw) {
   if (!raw) return { types: [], groups: [] };
@@ -50,7 +49,7 @@ function normalizeGalleryData(raw) {
       // En el backoffice suelen venir como items + stock, pero nos cubrimos:
       items: c.items ?? c.itemCount ?? c.count ?? 0,
       stock: c.stock ?? c.total ?? 0,
-      // Ejemplos: si viene "examples" lo usamos; si viene algo tipo "sample" lo envolvemos
+      // Ejemplos: pueden ser objetos cupón → los preservamos tal cual
       examples: Array.isArray(c.examples)
         ? c.examples
         : c.sample
@@ -92,8 +91,63 @@ function normalizeGalleryData(raw) {
   return { types: [], groups: [] };
 }
 
+// ──────────────────────────────────────────────
+// Helper para mostrar ejemplos de cupones
+// ──────────────────────────────────────────────
+function formatCouponExample(example) {
+  if (example == null) return "";
+  if (typeof example !== "object") return String(example);
 
+  const {
+    kind,
+    variant,
+    percent,
+    percentMin,
+    percentMax,
+    amount,
+    maxAmount,
+  } = example;
+
+  const isPercent = kind === "PERCENT";
+  const isAmount = kind === "AMOUNT";
+
+  const formatMoney = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "";
+    return `${n.toFixed(2)} €`;
+  };
+
+  if (isPercent) {
+    if (
+      variant === "RANGE" &&
+      percentMin != null &&
+      percentMax != null
+    ) {
+      return `${percentMin}-${percentMax}%`;
+    }
+    if (percent != null) return `${percent}%`;
+    return "% discount";
+  }
+
+  if (isAmount) {
+    if (
+      variant === "RANGE" &&
+      amount != null &&
+      maxAmount != null
+    ) {
+      return `${formatMoney(amount)} – ${formatMoney(maxAmount)}`;
+    }
+    if (amount != null) return formatMoney(amount);
+    return "Discount";
+  }
+
+  // Fallback genérico
+  return "Coupon";
+}
+
+// ──────────────────────────────────────────────
 // Tarjeta por tipo
+// ──────────────────────────────────────────────
 function CouponTypeCard({ group, isActive, onClick }) {
   const { type, items, stock, examples } = group;
 
@@ -115,7 +169,9 @@ function CouponTypeCard({ group, isActive, onClick }) {
         {examples && examples.length > 0 ? (
           <div className="gcg-examples">
             {examples.map((ex, idx) => (
-              <span key={idx} className="gcg-example">{ex}</span>
+              <span key={idx} className="gcg-example">
+                {formatCouponExample(ex)}
+              </span>
             ))}
           </div>
         ) : (
