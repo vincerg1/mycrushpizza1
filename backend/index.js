@@ -395,7 +395,7 @@ function startServer () {
       ...(SALES.tenant ? { tenant: SALES.tenant } : {})
     };
 
-    const url = salesUrl('/api/coupons/direct-claim');
+    const url = salesUrl('/direct-claim');
 
     try {
       const { data } = await postJson(url, payload, {
