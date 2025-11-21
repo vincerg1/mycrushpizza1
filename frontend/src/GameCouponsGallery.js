@@ -2,33 +2,22 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-// Backend de VENTAS (parche) → ya lo tienes en REACT_APP_API_URL
-const SALES_API_BASE =
-  (process.env.REACT_APP_API_URL || "").replace(/\/+$/, "");
-const SALES_API_KEY = process.env.REACT_APP_SALES_API_KEY || "";
+// 👉 ESTE ES EL BACKEND DEL JUEGO (Express)
+const BACKEND_BASE =
+  (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
-// Llama directamente al endpoint /api/coupons/gallery del portal de ventas
+// Usamos al backend del juego como proxy → No necesitamos API key aquí
 async function fetchCouponsGallery() {
-  if (!SALES_API_BASE) {
-    throw new Error("REACT_APP_API_URL is not configured");
+  if (!BACKEND_BASE) {
+    throw new Error("REACT_APP_BACKEND_URL is not configured");
   }
 
-  const res = await fetch(`${SALES_API_BASE}/api/coupons/gallery`, {
+  const res = await fetch(`${BACKEND_BASE}/game/coupons-gallery`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-      ...(SALES_API_KEY ? { "x-api-key": SALES_API_KEY } : {})
     }
   });
-
-  const contentType = res.headers.get("content-type") || "";
-
-  if (!contentType.includes("application/json")) {
-    const text = await res.text();
-    throw new Error(
-      `Expected JSON but got: ${text.slice(0, 80)}... (check URL / API key)`
-    );
-  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -40,13 +29,15 @@ async function fetchCouponsGallery() {
   return res.json();
 }
 
+// ──────────────────────────────────────────────
+// Normalización de datos (igual que antes)
+// ──────────────────────────────────────────────
 function normalizeGalleryData(raw) {
   if (!raw) return { types: [], groups: [] };
 
-  // Debug inicial para ver qué nos devuelve el backend de ventas
+  // Debug útil (solo para desarrollo)
   console.log("Coupons gallery raw:", raw);
 
-  // Caso 1: { types: [...], byType: { ... } }
   if (Array.isArray(raw.types) && raw.byType && typeof raw.byType === "object") {
     const groups = raw.types
       .map((t) => raw.byType[t])
@@ -61,7 +52,6 @@ function normalizeGalleryData(raw) {
     return { types: raw.types, groups };
   }
 
-  // Caso 2: array simple [{ type, items, stock, examples }]
   if (Array.isArray(raw)) {
     const types = raw.map((g) => g.type).filter(Boolean);
     const groups = raw.map((g) => ({
@@ -76,6 +66,7 @@ function normalizeGalleryData(raw) {
   return { types: [], groups: [] };
 }
 
+// Tarjeta por tipo
 function CouponTypeCard({ group, isActive, onClick }) {
   const { type, items, stock, examples } = group;
 
@@ -97,9 +88,7 @@ function CouponTypeCard({ group, isActive, onClick }) {
         {examples && examples.length > 0 ? (
           <div className="gcg-examples">
             {examples.map((ex, idx) => (
-              <span key={idx} className="gcg-example">
-                {ex}
-              </span>
+              <span key={idx} className="gcg-example">{ex}</span>
             ))}
           </div>
         ) : (
@@ -116,6 +105,9 @@ function CouponTypeCard({ group, isActive, onClick }) {
   );
 }
 
+// ──────────────────────────────────────────────
+// Componente principal
+// ──────────────────────────────────────────────
 export default function GameCouponsGallery() {
   const [types, setTypes] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -139,9 +131,8 @@ export default function GameCouponsGallery() {
         const { types: t, groups: g } = normalizeGalleryData(raw);
         setTypes(t);
         setGroups(g);
-        if (t.length > 0) {
-          setActiveType(t[0]);
-        }
+        if (t.length > 0) setActiveType(t[0]);
+
       } catch (err) {
         if (cancelled) return;
         console.error("Error loading coupons gallery:", err);
@@ -153,18 +144,8 @@ export default function GameCouponsGallery() {
 
     load();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
-
-  const handleTypeClick = (type) => {
-    setActiveType(type);
-  };
-
-  const handleTypeAction = (type) => {
-    console.log("Type action clicked:", type);
-  };
 
   const activeGroup = groups.find((g) => g.type === activeType) || null;
 
@@ -190,15 +171,15 @@ export default function GameCouponsGallery() {
         </div>
       </header>
 
+      {/* Chips de tipos */}
       <section className="gcg-types-row">
         <div className="gcg-types-label">Types:</div>
         <div className="gcg-types-chips">
           {types.map((type) => (
             <button
               key={type}
-              type="button"
               className={`gcg-chip ${type === activeType ? "gcg-chip--active" : ""}`}
-              onClick={() => handleTypeClick(type)}
+              onClick={() => setActiveType(type)}
             >
               {type}
             </button>
@@ -206,10 +187,10 @@ export default function GameCouponsGallery() {
         </div>
       </section>
 
-      {loading && (
-        <div className="gcg-state gcg-state--loading">Loading offers…</div>
-      )}
+      {/* Loading */}
+      {loading && <div className="gcg-state gcg-state--loading">Loading offers…</div>}
 
+      {/* Error */}
       {error && !loading && (
         <div className="gcg-state gcg-state--error">
           Sorry, we could not load the offers right now.
@@ -218,12 +199,14 @@ export default function GameCouponsGallery() {
         </div>
       )}
 
+      {/* Sin datos */}
       {!loading && !error && groups.length === 0 && (
         <div className="gcg-state gcg-state--empty">
           There are no offers available right now.
         </div>
       )}
 
+      {/* Galería */}
       {!loading && !error && groups.length > 0 && (
         <section className="gcg-gallery">
           <div className="gcg-gallery-row">
@@ -232,10 +215,7 @@ export default function GameCouponsGallery() {
                 key={group.type}
                 group={group}
                 isActive={group.type === activeType}
-                onClick={() => {
-                  handleTypeClick(group.type);
-                  handleTypeAction(group.type);
-                }}
+                onClick={() => setActiveType(group.type)}
               />
             ))}
           </div>
@@ -244,8 +224,7 @@ export default function GameCouponsGallery() {
             <div className="gcg-active-info">
               <h2 className="gcg-active-title">{activeGroup.type}</h2>
               <p className="gcg-active-text">
-                {activeGroup.items} {activeGroup.items === 1 ? "coupon" : "coupons"}{" "}
-                available · total stock {activeGroup.stock}.
+                {activeGroup.items} coupons available · total stock {activeGroup.stock}.
               </p>
             </div>
           )}
