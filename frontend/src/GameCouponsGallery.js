@@ -2,15 +2,15 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-// Backend de VENTAS (parche)
+// Backend de VENTAS (parche) → ya lo tienes en REACT_APP_API_URL
 const SALES_API_BASE =
-  (process.env.REACT_APP_SALES_API_URL || "").replace(/\/+$/, "");
+  (process.env.REACT_APP_API_URL || "").replace(/\/+$/, "");
 const SALES_API_KEY = process.env.REACT_APP_SALES_API_KEY || "";
 
 // Llama directamente al endpoint /api/coupons/gallery del portal de ventas
 async function fetchCouponsGallery() {
   if (!SALES_API_BASE) {
-    throw new Error("REACT_APP_SALES_API_URL is not configured");
+    throw new Error("REACT_APP_API_URL is not configured");
   }
 
   const res = await fetch(`${SALES_API_BASE}/api/coupons/gallery`, {
@@ -23,7 +23,6 @@ async function fetchCouponsGallery() {
 
   const contentType = res.headers.get("content-type") || "";
 
-  // Si el servidor devolviera HTML (típico 404 con <!DOCTYPE>), evitamos hacer res.json()
   if (!contentType.includes("application/json")) {
     const text = await res.text();
     throw new Error(
@@ -44,7 +43,10 @@ async function fetchCouponsGallery() {
 function normalizeGalleryData(raw) {
   if (!raw) return { types: [], groups: [] };
 
-  // Caso 1: ya viene como { types: [...], byType: { ... } }
+  // Debug inicial para ver qué nos devuelve el backend de ventas
+  console.log("Coupons gallery raw:", raw);
+
+  // Caso 1: { types: [...], byType: { ... } }
   if (Array.isArray(raw.types) && raw.byType && typeof raw.byType === "object") {
     const groups = raw.types
       .map((t) => raw.byType[t])
@@ -59,7 +61,7 @@ function normalizeGalleryData(raw) {
     return { types: raw.types, groups };
   }
 
-  // Caso 2: viene como array simple [{ type, items, stock, examples }]
+  // Caso 2: array simple [{ type, items, stock, examples }]
   if (Array.isArray(raw)) {
     const types = raw.map((g) => g.type).filter(Boolean);
     const groups = raw.map((g) => ({
@@ -71,7 +73,6 @@ function normalizeGalleryData(raw) {
     return { types, groups };
   }
 
-  // Fallback
   return { types: [], groups: [] };
 }
 
