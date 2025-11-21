@@ -40,6 +40,43 @@ async function fetchCouponsGallery() {
   return res.json();
 }
 
+// 🔗 Reclamo directo de cupón (proxy al backend del juego)
+async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
+  if (!BACKEND_BASE) {
+    throw new Error("REACT_APP_BACKEND_URL is not configured");
+  }
+
+  const payload = {
+    phone,
+    name,
+    type,
+    key,
+    ...(hours != null ? { hours } : {}),
+    ...(campaign != null ? { campaign } : {}),
+  };
+
+  const res = await fetch(`${BACKEND_BASE}/game/direct-claim`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const text = await res.text().catch(() => "");
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(
+      `Invalid response from direct-claim: ${res.status} ${res.statusText}`
+    );
+  }
+
+  // El backend de juego ya normaliza a { ok: true/false, error? }
+  return data || { ok: false, error: "empty_response" };
+}
+
 // ---------------------- Helpers de formato ----------------------
 function formatMoney(v) {
   const n = Number(v);
@@ -65,11 +102,7 @@ function formatCouponExample(example) {
   const isAmount = kind === "AMOUNT";
 
   if (isPercent) {
-    if (
-      variant === "RANGE" &&
-      percentMin != null &&
-      percentMax != null
-    ) {
+    if (variant === "RANGE" && percentMin != null && percentMax != null) {
       return `${percentMin}-${percentMax}%`;
     }
     if (percent != null) return `${percent}%`;
@@ -77,11 +110,7 @@ function formatCouponExample(example) {
   }
 
   if (isAmount) {
-    if (
-      variant === "RANGE" &&
-      amount != null &&
-      maxAmount != null
-    ) {
+    if (variant === "RANGE" && amount != null && maxAmount != null) {
       return `${formatMoney(amount)} – ${formatMoney(maxAmount)}`;
     }
     if (amount != null) return formatMoney(amount);
@@ -153,8 +182,7 @@ function normalizeGalleryData(raw) {
       const displaySubtitle = displaySubtitleRaw || makeSubtitle(exampleText);
 
       const items = 1;
-      const stock =
-        c.remaining != null ? Number(c.remaining || 0) : 0;
+      const stock = c.remaining != null ? Number(c.remaining || 0) : 0;
 
       return {
         type,
@@ -179,9 +207,7 @@ function normalizeGalleryData(raw) {
       const type = g.type || "";
       const title = g.title || "";
       const exampleObj =
-        Array.isArray(g.examples) && g.examples.length
-          ? g.examples[0]
-          : null;
+        Array.isArray(g.examples) && g.examples.length ? g.examples[0] : null;
       const exampleText = title || formatCouponExample(exampleObj);
       return {
         type,
@@ -262,12 +288,157 @@ function CouponCard({ group, isActive, onClick }) {
   );
 }
 
+// ---------------------- Modal de captura ----------------------
+function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+
+  // Reset campos cuando se abre/cambia el grupo
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setPhone("");
+    }
+  }, [open, activeGroup?.type]);
+
+  if (!open) return null;
+
+  const { sending, error, result } = state || {};
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (sending) return;
+
+    const trimmedPhone = String(phone || "").trim();
+    const trimmedName = String(name || "").trim();
+
+    if (!trimmedPhone || trimmedPhone.length < 6) {
+      // validación ultra básica (luego podemos mejorar)
+      alert("Por favor indica un número de teléfono válido.");
+      return;
+    }
+
+    onSubmit({ name: trimmedName || null, phone: trimmedPhone });
+  };
+
+  const success = result && result.ok;
+
+  let friendlyError = error || null;
+  if (!friendlyError && result && result.ok === false && result.error) {
+    if (result.error === "already_has_active") {
+      friendlyError =
+        "Ya tienes un cupón activo. Úsalo antes de solicitar uno nuevo.";
+    } else if (result.error === "out_of_stock") {
+      friendlyError = "Ahora mismo no quedan cupones de este tipo.";
+    } else if (result.error === "missing_params") {
+      friendlyError = "Faltan datos para poder generar tu cupón.";
+    } else if (typeof result.error === "string") {
+      friendlyError = result.error;
+    }
+  }
+
+  return (
+    <div className="gcg-modal-backdrop" onClick={sending ? undefined : onClose}>
+      <div
+        className="gcg-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="gcg-modal-title">
+          {activeGroup?.bucket === "game"
+            ? "Premio por jugar"
+            : "Cupón directo"}
+        </h2>
+
+        {!success && (
+          <p className="gcg-modal-text">
+            Déjanos tus datos y te enviaremos el cupón por SMS.
+          </p>
+        )}
+
+        {success && (
+          <p className="gcg-modal-text gcg-modal-text--success">
+            ✅ Hemos enviado tu cupón por SMS al número indicado.
+            ¡Revísalo en unos segundos!
+          </p>
+        )}
+
+        {!success && (
+          <form className="gcg-modal-form" onSubmit={handleSubmit}>
+            <label className="gcg-modal-field">
+              <span>Nombre (opcional)</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Tu nombre"
+              />
+            </label>
+
+            <label className="gcg-modal-field">
+              <span>Número de teléfono</span>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Ej: 612345678"
+                required
+              />
+            </label>
+
+            {friendlyError && (
+              <p className="gcg-modal-error">{friendlyError}</p>
+            )}
+
+            <div className="gcg-modal-actions">
+              <button
+                type="button"
+                className="gcg-modal-btn gcg-modal-btn--secondary"
+                onClick={onClose}
+                disabled={sending}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="gcg-modal-btn gcg-modal-btn--primary"
+                disabled={sending}
+              >
+                {sending ? "Enviando…" : "Enviar cupón por SMS"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {success && (
+          <div className="gcg-modal-actions">
+            <button
+              type="button"
+              className="gcg-modal-btn gcg-modal-btn--primary"
+              onClick={onClose}
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------- Componente principal ----------------------
 export default function GameCouponsGallery() {
   const [groups, setGroups] = useState([]);
   const [activeGroup, setActiveGroup] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // estado del modal de claim
+  const [claimOpen, setClaimOpen] = useState(false);
+  const [claimState, setClaimState] = useState({
+    sending: false,
+    error: null,
+    result: null,
+  });
 
   const navigate = useNavigate();
 
@@ -312,9 +483,47 @@ export default function GameCouponsGallery() {
       return;
     }
 
-    // Direct: gratis (más adelante conectaremos emisión real)
-    console.log("Obtener cupón directo:", activeGroup);
+    // Direct: abre modal de captura
+    setClaimState({ sending: false, error: null, result: null });
+    setClaimOpen(true);
   }
+
+  const handleSubmitClaim = async ({ name, phone }) => {
+    if (!activeGroup) return;
+
+    setClaimState({ sending: true, error: null, result: null });
+
+    try {
+      const resp = await claimDirectCoupon({
+        phone,
+        name,
+        type: activeGroup.rawCard?.type,
+        key: activeGroup.rawCard?.key,
+        // opcional: podrías pasar hours/campaign si quieres
+      });
+
+      if (!resp.ok) {
+        setClaimState({
+          sending: false,
+          error: null, // lo traducimos en el modal
+          result: resp,
+        });
+      } else {
+        setClaimState({
+          sending: false,
+          error: null,
+          result: resp,
+        });
+      }
+    } catch (e) {
+      console.error("Error direct-claim:", e);
+      setClaimState({
+        sending: false,
+        error: e.message || "No se pudo emitir el cupón.",
+        result: null,
+      });
+    }
+  };
 
   const ctaLabel =
     activeGroup?.bucket === "game"
@@ -377,6 +586,11 @@ export default function GameCouponsGallery() {
                   type="button"
                   className="gcg-detail-cta"
                   onClick={handlePrimaryAction}
+                  disabled={
+                    activeGroup.bucket === "direct" &&
+                    activeGroup.stock <= 0 &&
+                    activeGroup.items <= 0
+                  }
                 >
                   {ctaLabel}
                 </button>
@@ -384,6 +598,19 @@ export default function GameCouponsGallery() {
             )}
           </>
         )}
+
+        {/* Modal de captura para cupones directos */}
+        <ClaimModal
+          open={claimOpen}
+          onClose={() => {
+            if (claimState.sending) return;
+            setClaimOpen(false);
+            setClaimState({ sending: false, error: null, result: null });
+          }}
+          onSubmit={handleSubmitClaim}
+          activeGroup={activeGroup}
+          state={claimState}
+        />
       </main>
 
       {/* Footer global de la página */}
