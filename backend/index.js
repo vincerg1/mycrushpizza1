@@ -216,17 +216,14 @@ function getClientIp(req) {
   return (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
     .split(',')[0].trim();
 }
-
 async function getWinnerNumber() {
   const [[row]] = await db.query('SELECT numero FROM ganador ORDER BY id DESC LIMIT 1');
   return row ? row.numero : null;
 }
-
 async function getLock() {
   const [[st]] = await db.query('SELECT lock_until FROM juego_estado WHERE id=1');
   return st ? st.lock_until : null;
 }
-
 async function setLock(minutes = LOCK_MINUTES) {
   const [r] = await db.query(
     `UPDATE juego_estado
@@ -237,7 +234,6 @@ async function setLock(minutes = LOCK_MINUTES) {
   );
   return r.affectedRows;
 }
-
 async function clearLock() {
   await db.query('UPDATE juego_estado SET lock_until = NULL WHERE id = 1');
 }
@@ -262,8 +258,6 @@ async function logEvent({ evento, intento_valor = null, resultado = null, numero
     console.warn('⚠️  No se pudo escribir en juego_historial:', e.code || e.message);
   }
 }
-/* ---------- 🔗 VENTAS: cliente HTTP JSON + idempotencia ---------- */
-
 /* ---------- 🔗 VENTAS: cliente HTTP JSON + idempotencia ---------- */
 function getJson(urlStr, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -302,8 +296,6 @@ function getJson(urlStr, headers = {}) {
     req.end();
   });
 }
-
-
 function postJson(urlStr, payload, headers = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(urlStr);
