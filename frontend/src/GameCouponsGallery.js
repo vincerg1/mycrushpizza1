@@ -38,6 +38,30 @@ function normalizeGalleryData(raw) {
   // Debug útil (solo para desarrollo)
   console.log("Coupons gallery raw:", raw);
 
+  // ✅ Caso real actual: { ok, cards: [...], types: [...] }
+  if (Array.isArray(raw.cards)) {
+    const types =
+      Array.isArray(raw.types) && raw.types.length
+        ? raw.types
+        : raw.cards.map((c) => c.type).filter(Boolean);
+
+    const groups = raw.cards.map((c) => ({
+      type: c.type || "",
+      // En el backoffice suelen venir como items + stock, pero nos cubrimos:
+      items: c.items ?? c.itemCount ?? c.count ?? 0,
+      stock: c.stock ?? c.total ?? 0,
+      // Ejemplos: si viene "examples" lo usamos; si viene algo tipo "sample" lo envolvemos
+      examples: Array.isArray(c.examples)
+        ? c.examples
+        : c.sample
+        ? [c.sample]
+        : [],
+    }));
+
+    return { types, groups };
+  }
+
+  // 🔁 Caso antiguo 1: { types: [...], byType: { ... } }
   if (Array.isArray(raw.types) && raw.byType && typeof raw.byType === "object") {
     const groups = raw.types
       .map((t) => raw.byType[t])
@@ -52,6 +76,7 @@ function normalizeGalleryData(raw) {
     return { types: raw.types, groups };
   }
 
+  // 🔁 Caso antiguo 2: array simple [{ type, items, stock, examples }]
   if (Array.isArray(raw)) {
     const types = raw.map((g) => g.type).filter(Boolean);
     const groups = raw.map((g) => ({
@@ -63,8 +88,10 @@ function normalizeGalleryData(raw) {
     return { types, groups };
   }
 
+  // Fallback
   return { types: [], groups: [] };
 }
+
 
 // Tarjeta por tipo
 function CouponTypeCard({ group, isActive, onClick }) {
