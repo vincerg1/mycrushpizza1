@@ -475,18 +475,73 @@ export default function GameCouponsGallery() {
     };
   }, []);
 
-  function handlePrimaryAction() {
-    if (!activeGroup) return;
+ async function handlePrimaryAction() {
+  if (!activeGroup) return;
 
-    if (activeGroup.bucket === "game") {
-      navigate("/jugar");
-      return;
-    }
-
-    // Direct: abre modal de captura
-    setClaimState({ sending: false, error: null, result: null });
-    setClaimOpen(true);
+  // Si es premio de juego -> navega a /jugar (igual que antes)
+  if (activeGroup.bucket === "game") {
+    navigate("/jugar");
+    return;
   }
+
+  // 👉 Cupón directo: pedir teléfono y llamar al backend del juego
+  if (!activeGroup.rawCard) {
+    alert("No se puede identificar el tipo de cupón (falta rawCard).");
+    console.log("activeGroup sin rawCard:", activeGroup);
+    return;
+  }
+
+  const phone = window.prompt(
+    "Escribe tu teléfono con prefijo (ej. +34600111222) para recibir el cupón por SMS:"
+  );
+
+  if (!phone || !phone.trim()) {
+    return; // usuario canceló o vacío
+  }
+
+  const name = window.prompt(
+    "Nombre (opcional): escribe tu nombre o deja vacío:"
+  );
+
+  const payload = {
+    phone: phone.trim(),
+    name: name && name.trim() ? name.trim() : undefined,
+    type: activeGroup.rawCard.type, // 👈 muy importante
+    key: activeGroup.rawCard.key,   // 👈 muy importante
+    // opcionales:
+    // hours: 24,
+    // campaign: "GALLERY_DIRECT",
+  };
+
+  console.log("Direct claim payload:", payload);
+
+  try {
+    const res = await fetch(`${BACKEND_BASE}/game/direct-claim`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    console.log("Direct claim response:", data);
+
+    if (data.ok) {
+      alert(
+        `✅ Cupón emitido.\n\nCódigo: ${data.code}\nRevisa el SMS en el número ${phone.trim()}.`
+      );
+    } else {
+      alert(
+        `❌ No se pudo emitir el cupón.\n\nError: ${
+          data.error || "desconocido"
+        }`
+      );
+    }
+  } catch (e) {
+    console.error("Direct claim error:", e);
+    alert(`Error de red al emitir cupón: ${e.message}`);
+  }
+}
+
 
   const handleSubmitClaim = async ({ name, phone }) => {
     if (!activeGroup) return;
