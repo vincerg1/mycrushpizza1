@@ -2,11 +2,17 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+// FontAwesome (para el footer)
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { faTiktok } from "@fortawesome/free-brands-svg-icons";
+import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
+
 // 👉 Backend del juego (Express, proxy de /api/coupons/gallery)
 const BACKEND_BASE =
   (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
-// Si quieres, puedes pasar el GAME_ID al front para ayudar a clasificar
+// Opcional: GAME_ID para ayudar a clasificar cupones de juego
 const GAME_ID = process.env.REACT_APP_GAME_ID
   ? Number(process.env.REACT_APP_GAME_ID)
   : null;
@@ -112,15 +118,18 @@ function classifyBucket(card) {
   const acq = card.acquisition;
   const channel = card.channel;
   const gameId = card.gameId;
+  const subtitle = (card.subtitle || "").toLowerCase();
+  const cta = (card.cta || "").toLowerCase();
 
-  // Preferimos la info explícita de juego
   if (acq === "GAME" || channel === "GAME") return "game";
   if (GAME_ID != null && gameId === GAME_ID) return "game";
 
-  // Claim / Direct suelen ser cupones "gratis"
+  if (subtitle.includes("jugar") || cta.includes("jugar")) {
+    return "game";
+  }
+
   if (acq === "CLAIM" || acq === "DIRECT") return "direct";
 
-  // Fallback: consideramos direct si no sabemos
   return "direct";
 }
 
@@ -130,25 +139,32 @@ function normalizeGalleryData(raw) {
 
   console.log("Coupons gallery raw:", raw);
 
-  // Caso real actual: { ok, cards: [...], types: [...], debug: {...} }
   if (Array.isArray(raw.cards)) {
     const groups = raw.cards.map((c) => {
-      const bucket = classifyBucket(c);
+      const bucket = classifyBucket(c); // "direct" | "game"
       const type = c.type || "";
-      const exampleObj = Array.isArray(c.examples) && c.examples.length
-        ? c.examples[0]
-        : c.sample || null;
-      const exampleText = formatCouponExample(exampleObj);
+
+      const title = c.title || "";
+      const exampleText =
+        title || formatCouponExample(c.sample || c.sampleAccepted || null);
+
+      const displaySubtitleRaw =
+        (c.subtitle && String(c.subtitle).trim()) || "";
+      const displaySubtitle = displaySubtitleRaw || makeSubtitle(exampleText);
+
+      const items = 1;
+      const stock =
+        c.remaining != null ? Number(c.remaining || 0) : 0;
 
       return {
         type,
-        bucket, // "direct" | "game"
-        items: c.items ?? c.itemCount ?? c.count ?? 0,
-        stock: c.stock ?? c.total ?? 0,
-        examples: Array.isArray(c.examples) ? c.examples : [],
+        bucket,
+        items,
+        stock,
+        examples: title ? [title] : [],
         exampleText,
         displayTitle: mapTypeToTitle(type),
-        displaySubtitle: makeSubtitle(exampleText),
+        displaySubtitle,
         displayBadge:
           bucket === "game" ? "Premio por jugar" : "Cupón directo",
         rawCard: c,
@@ -158,19 +174,20 @@ function normalizeGalleryData(raw) {
     return { groups };
   }
 
-  // Fallback simple para versiones antiguas
   if (Array.isArray(raw)) {
     const groups = raw.map((g) => {
       const type = g.type || "";
-      const exampleObj = Array.isArray(g.examples) && g.examples.length
-        ? g.examples[0]
-        : null;
-      const exampleText = formatCouponExample(exampleObj);
+      const title = g.title || "";
+      const exampleObj =
+        Array.isArray(g.examples) && g.examples.length
+          ? g.examples[0]
+          : null;
+      const exampleText = title || formatCouponExample(exampleObj);
       return {
         type,
         bucket: "direct",
         items: g.items ?? g.itemCount ?? 0,
-        stock: g.stock ?? 0,
+        stock: g.stock ?? g.remaining ?? 0,
         examples: Array.isArray(g.examples) ? g.examples : [],
         exampleText,
         displayTitle: mapTypeToTitle(type),
@@ -185,7 +202,7 @@ function normalizeGalleryData(raw) {
   return { groups: [] };
 }
 
-// ---------------------- Card casino ----------------------
+// ---------------------- Tarjeta (selector) ----------------------
 function CouponCard({ group, isActive, onClick }) {
   const {
     displayTitle,
@@ -200,6 +217,8 @@ function CouponCard({ group, isActive, onClick }) {
   const bucketClass =
     bucket === "game" ? "gcg-card--game" : "gcg-card--direct";
 
+  const hasStock = items > 0 || stock > 0;
+
   return (
     <button
       type="button"
@@ -207,6 +226,7 @@ function CouponCard({ group, isActive, onClick }) {
         isActive ? "gcg-card--active" : ""
       }`}
       onClick={onClick}
+      disabled={!hasStock}
     >
       <div className="gcg-card-header">
         <div className="gcg-card-badge">{displayBadge}</div>
@@ -226,7 +246,7 @@ function CouponCard({ group, isActive, onClick }) {
 
       <div className="gcg-card-footer">
         <div className="gcg-card-stock">
-          {items > 0 || stock > 0 ? (
+          {hasStock ? (
             <>
               <span className="gcg-card-stock-label">Disponibles:</span>
               <span className="gcg-card-stock-value">
@@ -265,10 +285,9 @@ export default function GameCouponsGallery() {
         const { groups: g } = normalizeGalleryData(raw);
         setGroups(g || []);
 
-        // Active por defecto: primero direct, si no hay, primero game
-        const direct = g.find((x) => x.bucket === "direct");
-        const game = g.find((x) => x.bucket === "game");
-        setActiveGroup(direct || game || null);
+        if (g && g.length > 0) {
+          setActiveGroup(g[0]);
+        }
       } catch (err) {
         if (cancelled) return;
         console.error("Error loading coupons gallery:", err);
@@ -285,85 +304,64 @@ export default function GameCouponsGallery() {
     };
   }, []);
 
-  const directGroups = groups.filter((g) => g.bucket === "direct");
-  const gameGroups = groups.filter((g) => g.bucket === "game");
-
-  const handlePlayNow = () => {
-    navigate("/jugar");
-  };
-
-  const handlePrimaryAction = () => {
+  function handlePrimaryAction() {
     if (!activeGroup) return;
+
     if (activeGroup.bucket === "game") {
-      // Premios por jugar → ir al juego
       navigate("/jugar");
-    } else {
-      // Cupón directo → más adelante aquí llamaremos a un endpoint de "claim"
-      console.log("Direct coupon action for group:", activeGroup);
-      alert(
-        "En la siguiente fase, aquí conectaremos la emisión real del cupón. 🙂"
-      );
+      return;
     }
-  };
+
+    // Direct: gratis (más adelante conectaremos emisión real)
+    console.log("Obtener cupón directo:", activeGroup);
+  }
+
+  const ctaLabel =
+    activeGroup?.bucket === "game"
+      ? "🎮 Pulsa para Jugar"
+      : "🎁 Obtener cupón";
 
   return (
-    <main className="gcg-root gcg-root--casino">
-      <header className="gcg-header">
-        <div className="gcg-header-text">
-          <h1 className="gcg-title">Coupon Gallery</h1>
-          <p className="gcg-subtitle">
-            Choose the type of offer you want to go for: free coupons,
-            game rewards, and more from MyCrushPizza.
-          </p>
-        </div>
+    <>
+      <main className="gcg-root gcg-root--casino">
+        <header className="gcg-header">
+          <div className="gcg-header-text">
+            <h1 className="gcg-title">Coupon Gallery</h1>
+            <p className="gcg-subtitle">
+              Choose the type of offer you want to go for: free coupons,
+              game rewards, and more from MyCrushPizza.
+            </p>
+          </div>
+        </header>
 
-        <div className="gcg-header-actions">
-          <button
-            type="button"
-            className="gcg-primary"
-            onClick={handlePlayNow}
-          >
-            🎮 Play now
-          </button>
-        </div>
-      </header>
+        {loading && (
+          <div className="gcg-state gcg-state--loading">
+            Loading offers…
+          </div>
+        )}
 
-      {loading && (
-        <div className="gcg-state gcg-state--loading">
-          Loading offers…
-        </div>
-      )}
+        {error && !loading && (
+          <div className="gcg-state gcg-state--error">
+            Sorry, we could not load the offers right now.
+            <br />
+            <small>{error}</small>
+          </div>
+        )}
 
-      {error && !loading && (
-        <div className="gcg-state gcg-state--error">
-          Sorry, we could not load the offers right now.
-          <br />
-          <small>{error}</small>
-        </div>
-      )}
+        {!loading && !error && groups.length === 0 && (
+          <div className="gcg-state gcg-state--empty">
+            There are no offers available right now.
+          </div>
+        )}
 
-      {!loading && !error && groups.length === 0 && (
-        <div className="gcg-state gcg-state--empty">
-          There are no offers available right now.
-        </div>
-      )}
-
-      {!loading && !error && groups.length > 0 && (
-        <>
-          {/* 🔥 Bloque 1: Ofertas directas */}
-          {directGroups.length > 0 && (
-            <section className="gcg-section">
-              <div className="gcg-section-header">
-                <h2 className="gcg-section-title">Direct deals</h2>
-                <p className="gcg-section-subtitle">
-                  Coupons you can get without playing.
-                </p>
-              </div>
-
-              <div className="gcg-scroll-row">
-                {directGroups.map((group) => (
+        {!loading && !error && groups.length > 0 && (
+          <>
+            {/* Galería de tarjetas (selectores) */}
+            <section className="gcg-gallery">
+              <div className="gcg-cards-container">
+                {groups.map((group) => (
                   <CouponCard
-                    key={`direct-${group.type}`}
+                    key={`${group.bucket}-${group.type}`}
                     group={group}
                     isActive={activeGroup?.type === group.type}
                     onClick={() => setActiveGroup(group)}
@@ -371,75 +369,101 @@ export default function GameCouponsGallery() {
                 ))}
               </div>
             </section>
-          )}
 
-          {/* 🎮 Bloque 2: Premios por jugar */}
-          {gameGroups.length > 0 && (
-            <section className="gcg-section">
-              <div className="gcg-section-header">
-                <h2 className="gcg-section-title">Rewards for playing</h2>
-                <p className="gcg-section-subtitle">
-                  Prizes you can win by playing the game.
-                </p>
-              </div>
-
-              <div className="gcg-scroll-row">
-                {gameGroups.map((group) => (
-                  <CouponCard
-                    key={`game-${group.type}`}
-                    group={group}
-                    isActive={activeGroup?.type === group.type}
-                    onClick={() => setActiveGroup(group)}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Panel de detalle inferior */}
-          {activeGroup && (
-            <section className="gcg-detail">
-              <div className="gcg-detail-card">
-                <div className="gcg-detail-badge">
-                  {activeGroup.displayBadge}
-                </div>
-                <h2 className="gcg-detail-title">
-                  {activeGroup.displayTitle}
-                </h2>
-
-                {activeGroup.exampleText && (
-                  <div className="gcg-detail-example">
-                    {activeGroup.exampleText}
-                  </div>
-                )}
-
-                {activeGroup.displaySubtitle && (
-                  <p className="gcg-detail-subtitle">
-                    {activeGroup.displaySubtitle}
-                  </p>
-                )}
-
-                <div className="gcg-detail-meta">
-                  <span>
-                    {activeGroup.items} tipos de cupón · stock{" "}
-                    {activeGroup.stock}
-                  </span>
-                </div>
-
+            {/* SOLO botón de acción, sin descripción adicional */}
+            {activeGroup && (
+              <section className="gcg-detail">
                 <button
                   type="button"
                   className="gcg-detail-cta"
                   onClick={handlePrimaryAction}
                 >
-                  {activeGroup.bucket === "game"
-                    ? "🎮 Jugar para conseguirlo"
-                    : "🎁 Obtener cupón"}
+                  {ctaLabel}
                 </button>
-              </div>
-            </section>
-          )}
-        </>
-      )}
-    </main>
+              </section>
+            )}
+          </>
+        )}
+      </main>
+
+      {/* Footer global de la página */}
+      <footer className="footer">
+        <div className="footer__inner">
+          <p className="info-text">¡Más información aquí!</p>
+
+          <div className="social-icons">
+            <a
+              href="https://wa.me/34694301433"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="WhatsApp Chat"
+            >
+              <FontAwesomeIcon icon={faWhatsapp} className="icon" />
+            </a>
+            <a
+              href="https://www.tiktok.com/@mycrushpizza1?_t=ZN-8whjKa8Moxq&_r=1"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="TikTok"
+            >
+              <FontAwesomeIcon icon={faTiktok} className="icon" />
+            </a>
+            <a
+              href="tel:694301433"
+              className="call-link"
+              aria-label="Llamar"
+            >
+              <FontAwesomeIcon
+                icon={faMobileScreenButton}
+                className="icon"
+              />
+            </a>
+          </div>
+
+          <p className="footer__legal">
+            © {new Date().getFullYear()} MyCrushPizza SL.
+            <br />
+            Todos los derechos reservados.
+          </p>
+
+          <p className="footer__links">
+            <a
+              href="/bases.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Términos y condiciones
+            </a>
+            ·
+            <a
+              href="/privacidad.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Privacidad
+            </a>
+            ·
+            <a
+              href="/cookies.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Política de cookies
+            </a>
+            ·
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                localStorage.setItem("mcp_cookiesConsent", "");
+                window.location.reload();
+              }}
+            >
+              Preferencias de cookies
+            </a>
+          </p>
+        </div>
+      </footer>
+    </>
   );
 }
