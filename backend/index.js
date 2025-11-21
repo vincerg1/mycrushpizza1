@@ -263,6 +263,47 @@ async function logEvent({ evento, intento_valor = null, resultado = null, numero
   }
 }
 /* ---------- 🔗 VENTAS: cliente HTTP JSON + idempotencia ---------- */
+
+/* ---------- 🔗 VENTAS: cliente HTTP JSON + idempotencia ---------- */
+function getJson(urlStr, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(urlStr);
+    const isHttps = u.protocol === 'https:';
+
+    const options = {
+      hostname: u.hostname,
+      port: u.port || (isHttps ? 443 : 80),
+      path: u.pathname + (u.search || ''),
+      method: 'GET',
+      headers,
+      timeout: 8000
+    };
+
+    const req = (isHttps ? https : http).request(options, (res) => {
+      let raw = '';
+      res.on('data', (d) => (raw += d));
+      res.on('end', () => {
+        let json = null;
+        try { json = raw ? JSON.parse(raw) : null; } catch { /* noop */ }
+
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve({ status: res.statusCode, data: json });
+        } else {
+          reject(new Error(`HTTP ${res.statusCode}: ${raw || '(sin cuerpo)'}`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => {
+      req.destroy(new Error('timeout'));
+    });
+
+    req.end();
+  });
+}
+
+
 function postJson(urlStr, payload, headers = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(urlStr);
@@ -300,6 +341,29 @@ function salesUrl(pathname) {
 function startServer () {
   const app = express();
   app.use(cors());
+   app.get('/game/coupons-gallery', async (req, res) => {
+    if (!salesEnabled) {
+      return res
+        .status(503)
+        .json({ error: 'Sales integration disabled (SALES_API_URL / SALES_API_KEY missing)' });
+    }
+
+    try {
+      const url = salesUrl('/api/coupons/gallery');
+
+      const { data } = await getJson(url, {
+        'x-api-key': SALES.key
+      });
+
+      // devolvemos tal cual lo que entrega el backend de ventas
+      return res.json(data || {});
+    } catch (err) {
+      console.warn('[game/coupons-gallery] error:', err?.message || err);
+      return res
+        .status(502)
+        .json({ error: 'Failed to fetch coupons gallery from sales backend' });
+    }
+  });
   app.use(express.json());
 
 app.get('/', async (_, res) =>
