@@ -9,8 +9,7 @@ import { faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 
 // 👉 Backend del juego (Express, proxy de /api/coupons/gallery)
-const BACKEND_BASE =
-  (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
+const BACKEND_BASE = "https://mcpbackend-production.up.railway.app/api/coupons";
 
 // Opcional: GAME_ID para ayudar a clasificar cupones de juego
 const GAME_ID = process.env.REACT_APP_GAME_ID
@@ -23,7 +22,7 @@ async function fetchCouponsGallery() {
     throw new Error("REACT_APP_BACKEND_URL is not configured");
   }
 
-  const res = await fetch(`${BACKEND_BASE}/game/coupons-gallery`, {
+  const res = await fetch(`${BACKEND_BASE}/gallery`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -55,7 +54,7 @@ async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
     ...(campaign != null ? { campaign } : {}),
   };
 
-  const res = await fetch(`${BACKEND_BASE}/game/direct-claim`, {
+  const res = await fetch(`${BACKEND_BASE}/direct-claim`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -491,9 +490,9 @@ export default function GameCouponsGallery() {
     return;
   }
 
-  const phone = window.prompt(
-    "Escribe tu teléfono con prefijo (ej. +34600111222) para recibir el cupón por SMS:"
-  );
+const phone = window.prompt(
+  "Escribe tu número de móvil para recibir el cupón por SMS (ej. 694301433):"
+);
 
   if (!phone || !phone.trim()) {
     return; // usuario canceló o vacío
@@ -516,7 +515,7 @@ export default function GameCouponsGallery() {
   console.log("Direct claim payload:", payload);
 
   try {
-    const res = await fetch(`${BACKEND_BASE}/game/direct-claim`, {
+    const res = await fetch(`${BACKEND_BASE}/direct-claim`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
