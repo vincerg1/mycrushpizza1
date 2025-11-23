@@ -1,0 +1,124 @@
+.gcg-gallery {
+  margin-top: 1rem;
+}
+
+.gcg-carousel {
+  position: relative;
+  padding: 0 1rem;
+}
+
+.gcg-carousel-inner {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 0.5rem;
+}
+
+.gcg-carousel-inner::-webkit-scrollbar {
+  display: none;
+}
+
+.gcg-carousel-item {
+  flex: 0 0 80%;
+  max-width: 340px;
+  scroll-snap-align: center;
+}
+
+@media (min-width: 768px) {
+  .gcg-carousel-item {
+    flex-basis: 260px;
+  }
+}
+
+/* edges para indicar que hay más */
+.gcg-carousel-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  pointer-events: none;
+}
+
+.gcg-carousel-edge--left {
+  left: 0;
+  background: linear-gradient(to right, rgba(10, 10, 60, 0.9), transparent);
+}
+
+.gcg-carousel-edge--right {
+  right: 0;
+  background: linear-gradient(to left, rgba(10, 10, 60, 0.9), transparent);
+}
+
+/* Cards un poco más grandes y táctiles */
+.gcg-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 0.9rem 1rem 1rem;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  min-height: 190px;
+}
+
+.gcg-card--game {
+  border: 2px solid #f92672;
+}
+
+.gcg-card--direct {
+  border: 2px solid #4285f4;
+}
+
+.gcg-card-header {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 0.35rem;
+}
+
+.gcg-card-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.gcg-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.gcg-card-example {
+  margin-top: 0.1rem;
+  font-size: 0.9rem;
+}
+
+.gcg-card-subtitle {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.gcg-card-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.gcg-card-stock {
+  font-size: 0.78rem;
+}
+
+.gcg-card-cta {
+  border: none;
+  border-radius: 999px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #f92672;
+  color: #fff;
+  white-space: nowrap;
+}
