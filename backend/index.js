@@ -357,100 +357,107 @@ function startServer () {
     }
   });
   app.use(express.json());
- app.post('/game/direct-claim', async (req, res) => {
-    if (!salesEnabled) {
-      return res
-        .status(503)
-        .json({ ok: false, error: 'sales_disabled' });
-    }
+app.post('/game/direct-claim', async (req, res) => {
+  if (!salesEnabled) {
+    return res
+      .status(503)
+      .json({ ok: false, error: 'sales_disabled' });
+  }
 
-    const ip = getClientIp(req);
-    const {
-      phone,
-      name,
-      type,
-      key,
-      hours,
-      campaign
-    } = req.body || {};
+  const ip = getClientIp(req);
+  const {
+    phone,
+    name,
+    type,
+    key,
+    hours,
+    campaign
+  } = req.body || {};
 
-    const phoneRaw = String(phone || '').trim();
+  const phoneRaw = String(phone || '').trim();
 
-    if (!phoneRaw || !type || !key) {
-      return res.json({
-        ok: false,
-        error: 'missing_params',
-        details: { phone: !!phoneRaw, type: !!type, key: !!key }
-      });
-    }
+  if (!phoneRaw || !type || !key) {
+    return res.json({
+      ok: false,
+      error: 'missing_params',
+      details: { phone: !!phoneRaw, type: !!type, key: !!key }
+    });
+  }
 
-    // payload que enviamos al backend de Ventas
-    const payload = {
-      phone: phoneRaw,
-      name: name ? String(name).trim() : undefined,
-      type,
-      key,
-      ...(hours != null ? { hours } : {}),
-      ...(campaign != null ? { campaign } : {}),
-      ...(SALES.tenant ? { tenant: SALES.tenant } : {})
-    };
+  // payload que enviamos al backend de Ventas
+  const payload = {
+    phone: phoneRaw,
+    name: name ? String(name).trim() : undefined,
+    type,
+    key,
+    ...(hours != null ? { hours } : {}),
+    ...(campaign != null ? { campaign } : {}),
+    ...(SALES.tenant ? { tenant: SALES.tenant } : {})
+  };
 
-    const url = salesUrl('/api/coupons/direct-claim');
+  // ⚠️ IMPORTANTE: ruta real del backend de Ventas
+  const url = salesUrl('/api/coupons/direct-claim');
 
+  console.log('[game/direct-claim] → POST', url, 'payload:', payload);
+
+  try {
+    const { data } = await postJson(url, payload, {
+      'x-api-key': SALES.key
+    });
+
+    console.log('[game/direct-claim] ← response from sales:', data);
+
+    // log opcional en el histórico del juego
     try {
-      const { data } = await postJson(url, payload, {
-        'x-api-key': SALES.key
-      });
-
-      // log opcional en el histórico del juego
-      try {
-        await logEvent({
-          evento: 'direct_claim',
-          resultado: data?.ok ? 'ok' : 'fail',
-          numero_ganador: null,
-          ip,
-          extra: {
-            type,
-            key,
-            phone: phoneRaw,
-            backend: data
-          }
-        });
-      } catch (_) {
-        // si falla el log, no rompemos la respuesta al usuario
-      }
-
-      // devolvemos tal cual (data.ok true/false)
-      return res.json(data || { ok: false, error: 'empty_response' });
-    } catch (err) {
-      // Aquí puede venir un HTTP 4xx/5xx desde Ventas.
-      // Intentamos extraer el JSON del mensaje de error "HTTP 409: {...}"
-      const msg = err?.message || '';
-      let parsed = null;
-
-      const idx = msg.indexOf('{');
-      if (idx !== -1) {
-        try {
-          parsed = JSON.parse(msg.slice(idx));
-        } catch (_) {
-          parsed = null;
+      await logEvent({
+        evento: 'direct_claim',
+        resultado: data?.ok ? 'ok' : 'fail',
+        numero_ganador: null,
+        ip,
+        extra: {
+          type,
+          key,
+          phone: phoneRaw,
+          backend: data
         }
-      }
-
-      if (parsed && typeof parsed === 'object') {
-        // Normalizamos a 200 para que el front siempre reciba JSON {ok:false,...}
-        return res.json(parsed);
-      }
-
-      console.warn('[game/direct-claim] upstream error:', msg);
-
-      return res.status(502).json({
-        ok: false,
-        error: 'upstream_error',
-        message: msg
       });
+    } catch (_) {
+      // si falla el log, no rompemos la respuesta al usuario
     }
-  });
+
+    // devolvemos tal cual (data.ok true/false)
+    return res.json(data || { ok: false, error: 'empty_response' });
+  } catch (err) {
+    // Aquí puede venir un HTTP 4xx/5xx desde Ventas.
+    // Intentamos extraer el JSON del mensaje de error "HTTP 409: {...}"
+    const msg = err?.message || '';
+    let parsed = null;
+
+    const idx = msg.indexOf('{');
+    if (idx !== -1) {
+      try {
+        parsed = JSON.parse(msg.slice(idx));
+      } catch (_) {
+        parsed = null;
+      }
+    }
+
+    if (parsed && typeof parsed === 'object') {
+      console.warn('[game/direct-claim] upstream error (parsed JSON):', parsed);
+      // Normalizamos a 200 para que el front siempre reciba JSON {ok:false,...}
+      return res.json(parsed);
+    }
+
+    console.warn('[game/direct-claim] upstream error (raw):', msg);
+
+    return res.status(502).json({
+      ok: false,
+      error: 'upstream_error',
+      message: msg
+    });
+  }
+});
+
 app.get('/', async (_, res) =>
     res.send(`Servidor funcionando correctamente 🚀 (${new Date().toISOString()})`)
 );
