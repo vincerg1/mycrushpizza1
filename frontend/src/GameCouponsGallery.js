@@ -20,10 +20,17 @@ const GAME_ID = process.env.REACT_APP_GAME_ID
 // ---------------------- Fetch ----------------------
 async function fetchCouponsGallery() {
   if (!BACKEND_BASE) {
+    console.error(
+      "[GameCouponsGallery] REACT_APP_BACKEND_URL is not configured. BACKEND_BASE=",
+      BACKEND_BASE
+    );
     throw new Error("REACT_APP_BACKEND_URL is not configured");
   }
 
-  const res = await fetch(`${BACKEND_BASE}/game/coupons-gallery`, {
+  const url = `${BACKEND_BASE}/game/coupons-gallery`;
+  console.log("[GameCouponsGallery] Fetching gallery from:", url);
+
+  const res = await fetch(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -32,17 +39,29 @@ async function fetchCouponsGallery() {
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    console.error(
+      "[GameCouponsGallery] Failed to fetch coupons gallery:",
+      res.status,
+      res.statusText,
+      text
+    );
     throw new Error(
       `Failed to fetch coupons gallery: ${res.status} ${res.statusText} ${text}`
     );
   }
 
-  return res.json();
+  const data = await res.json();
+  console.log("[GameCouponsGallery] Gallery response:", data);
+  return data;
 }
 
 // 🔗 Reclamo directo de cupón (proxy al backend del juego)
 async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
   if (!BACKEND_BASE) {
+    console.error(
+      "[GameCouponsGallery] REACT_APP_BACKEND_URL is not configured. BACKEND_BASE=",
+      BACKEND_BASE
+    );
     throw new Error("REACT_APP_BACKEND_URL is not configured");
   }
 
@@ -55,7 +74,14 @@ async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
     ...(campaign != null ? { campaign } : {}),
   };
 
-  const res = await fetch(`${BACKEND_BASE}/game/direct-claim`, {
+  const url = `${BACKEND_BASE}/game/direct-claim`;
+  // Log sin mostrar el teléfono completo
+  console.log("[GameCouponsGallery] POST /game/direct-claim payload:", {
+    ...payload,
+    phone: phone ? `${String(phone).slice(0, 3)}******` : null,
+  });
+
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -65,15 +91,37 @@ async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
 
   const text = await res.text().catch(() => "");
   let data = null;
+
   try {
     data = text ? JSON.parse(text) : null;
-  } catch {
+  } catch (e) {
+    console.error(
+      "[GameCouponsGallery] Invalid JSON from direct-claim:",
+      res.status,
+      res.statusText,
+      text
+    );
     throw new Error(
       `Invalid response from direct-claim: ${res.status} ${res.statusText}`
     );
   }
 
+  console.log(
+    "[GameCouponsGallery] /game/direct-claim response:",
+    res.status,
+    res.statusText,
+    data
+  );
+
   // El backend de juego ya normaliza a { ok: true/false, error? }
+  // Si por lo que sea viene sin ok, lo forzamos a false para que el modal lo trate como error.
+  if (data && typeof data.ok === "undefined") {
+    data.ok = false;
+    if (!data.error) {
+      data.error = "unexpected_response";
+    }
+  }
+
   return data || { ok: false, error: "empty_response" };
 }
 
@@ -166,8 +214,9 @@ function classifyBucket(card) {
 function normalizeGalleryData(raw) {
   if (!raw) return { groups: [] };
 
-  console.log("Coupons gallery raw:", raw);
+  console.log("Coupons gallery raw (normalizeGalleryData):", raw);
 
+  // Caso API nueva: { cards: [...] }
   if (Array.isArray(raw.cards)) {
     const groups = raw.cards.map((c) => {
       const bucket = classifyBucket(c); // "direct" | "game"
@@ -199,9 +248,11 @@ function normalizeGalleryData(raw) {
       };
     });
 
+    console.log("[GameCouponsGallery] Normalized groups:", groups);
     return { groups };
   }
 
+  // Caso legacy: raw = [ ... ]
   if (Array.isArray(raw)) {
     const groups = raw.map((g) => {
       const type = g.type || "";
@@ -222,6 +273,7 @@ function normalizeGalleryData(raw) {
         rawCard: g,
       };
     });
+    console.log("[GameCouponsGallery] Normalized groups (legacy):", groups);
     return { groups };
   }
 
@@ -313,7 +365,6 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
     const trimmedName = String(name || "").trim();
 
     if (!trimmedPhone || trimmedPhone.length < 6) {
-      // validación ultra básica (luego podemos mejorar)
       alert("Por favor indica un número de teléfono válido.");
       return;
     }
@@ -337,6 +388,14 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
     }
   }
 
+  // Datos del cupón devueltos por /direct-claim (ventas)
+  const couponCode = result?.code || null;
+  const couponTitle = result?.title || null;
+  const couponExpiresAt = result?.expiresAt || null;
+  const couponExpiresText = couponExpiresAt
+    ? new Date(couponExpiresAt).toLocaleString("es-ES")
+    : null;
+
   return (
     <div className="gcg-modal-backdrop" onClick={sending ? undefined : onClose}>
       <div
@@ -356,10 +415,30 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
         )}
 
         {success && (
-          <p className="gcg-modal-text gcg-modal-text--success">
-            ✅ Hemos enviado tu cupón por SMS al número indicado.
-            ¡Revísalo en unos segundos!
-          </p>
+          <div className="gcg-modal-success-block">
+            <p className="gcg-modal-text gcg-modal-text--success">
+              ✅ Hemos enviado tu cupón por SMS al número indicado.
+            </p>
+            {couponCode && (
+              <p className="gcg-modal-text">
+                Código de tu cupón:{" "}
+                <strong className="gcg-modal-code">{couponCode}</strong>
+              </p>
+            )}
+            {couponTitle && (
+              <p className="gcg-modal-text">
+                Valor de la oferta: <strong>{couponTitle}</strong>
+              </p>
+            )}
+            {couponExpiresText && (
+              <p className="gcg-modal-text">
+                Válido hasta: <strong>{couponExpiresText}</strong>
+              </p>
+            )}
+            <p className="gcg-modal-text">
+              Si no lo ves, revisa también tu bandeja de SMS bloqueados.
+            </p>
+          </div>
         )}
 
         {!success && (
@@ -454,10 +533,14 @@ export default function GameCouponsGallery() {
         if (cancelled) return;
 
         const { groups: g } = normalizeGalleryData(raw);
+        console.log("[GameCouponsGallery] Final groups state:", g);
+
         setGroups(g || []);
 
         if (g && g.length > 0) {
           setActiveGroup(g[0]);
+        } else {
+          setActiveGroup(null);
         }
       } catch (err) {
         if (cancelled) return;
@@ -476,7 +559,12 @@ export default function GameCouponsGallery() {
   }, []);
 
   function handlePrimaryAction() {
-    if (!activeGroup) return;
+    if (!activeGroup) {
+      console.warn("[GameCouponsGallery] handlePrimaryAction with no activeGroup");
+      return;
+    }
+
+    console.log("[GameCouponsGallery] Primary action on group:", activeGroup);
 
     if (activeGroup.bucket === "game") {
       navigate("/jugar");
@@ -489,26 +577,69 @@ export default function GameCouponsGallery() {
   }
 
   const handleSubmitClaim = async ({ name, phone }) => {
-    if (!activeGroup) return;
+    if (!activeGroup) {
+      console.warn(
+        "[GameCouponsGallery] handleSubmitClaim with no activeGroup"
+      );
+      return;
+    }
 
     setClaimState({ sending: true, error: null, result: null });
 
     try {
+      const type = activeGroup.rawCard?.type;
+      const key = activeGroup.rawCard?.key;
+
+      console.log("[GameCouponsGallery] Submitting claim with type/key:", {
+        type,
+        key,
+      });
+
       const resp = await claimDirectCoupon({
         phone,
         name,
-        type: activeGroup.rawCard?.type,
-        key: activeGroup.rawCard?.key,
+        type,
+        key,
         // opcional: podrías pasar hours/campaign si quieres
       });
 
       if (!resp.ok) {
+        console.warn("[GameCouponsGallery] direct-claim returned error:", resp);
         setClaimState({
           sending: false,
-          error: null, // lo traducimos en el modal
+          error: null, // se traduce en el modal
           result: resp,
         });
       } else {
+        console.log("[GameCouponsGallery] direct-claim success:", resp);
+
+        // Actualizar el stock en memoria (si tenemos stock finito)
+        setGroups((prev) => {
+          const updated = prev.map((g) => {
+            if (
+              g.type === activeGroup.type &&
+              g.bucket === activeGroup.bucket
+            ) {
+              const newStock =
+                typeof g.stock === "number"
+                  ? Math.max(0, (g.stock || 0) - 1)
+                  : g.stock;
+              return { ...g, stock: newStock };
+            }
+            return g;
+          });
+          return updated;
+        });
+
+        setActiveGroup((prev) => {
+          if (!prev) return prev;
+          const newStock =
+            typeof prev.stock === "number"
+              ? Math.max(0, (prev.stock || 0) - 1)
+              : prev.stock;
+          return { ...prev, stock: newStock };
+        });
+
         setClaimState({
           sending: false,
           error: null,
@@ -572,8 +703,17 @@ export default function GameCouponsGallery() {
                   <CouponCard
                     key={`${group.bucket}-${group.type}`}
                     group={group}
-                    isActive={activeGroup?.type === group.type}
-                    onClick={() => setActiveGroup(group)}
+                    isActive={
+                      activeGroup?.type === group.type &&
+                      activeGroup?.bucket === group.bucket
+                    }
+                    onClick={() => {
+                      console.log(
+                        "[GameCouponsGallery] Selecting group:",
+                        group
+                      );
+                      setActiveGroup(group);
+                    }}
                   />
                 ))}
               </div>
