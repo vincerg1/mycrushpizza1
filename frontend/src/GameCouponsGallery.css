@@ -1,124 +1,366 @@
+/* =========================================================
+   ROOT / LAYOUT GENERAL
+   ========================================================= */
+
+.gcg-root {
+  min-height: 100vh;
+  padding: 16px 12px 120px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: #4b8cff;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.gcg-root--casino {
+  background: radial-gradient(circle at top, #7fb3ff 0, #3663c9 40%, #1f3a7a 100%);
+}
+
+.gcg-header {
+  padding: 8px 8px 12px;
+  text-align: center;
+  color: #fff;
+}
+
+.gcg-title {
+  font-size: 1.8rem;
+  margin: 0 0 4px;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+}
+
+.gcg-subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  opacity: 0.9;
+}
+
+/* =========================================================
+   STATES: LOADING / ERROR / EMPTY
+   ========================================================= */
+
+.gcg-state {
+  color: #fff;
+  text-align: center;
+  padding: 32px 16px;
+  font-size: 0.95rem;
+}
+
+.gcg-state--error small {
+  opacity: 0.8;
+  display: block;
+  margin-top: 6px;
+}
+
+.gcg-state--empty {
+  opacity: 0.9;
+}
+
+/* =========================================================
+   CARRUSEL HORIZONTAL (SWIPE)
+   ========================================================= */
+
 .gcg-gallery {
-  margin-top: 1rem;
+  margin-top: 8px;
 }
 
 .gcg-carousel {
   position: relative;
-  padding: 0 1rem;
+  margin: 0 auto;
+  max-width: 480px;
 }
 
 .gcg-carousel-inner {
   display: flex;
-  gap: 1rem;
+  flex-direction: row;
+  gap: 12px;
   overflow-x: auto;
+  padding: 8px 24px 16px;
+  margin: 0 -24px;
   scroll-snap-type: x mandatory;
-  padding-bottom: 0.5rem;
-}
-
-.gcg-carousel-inner::-webkit-scrollbar {
-  display: none;
+  scroll-padding: 24px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .gcg-carousel-item {
-  flex: 0 0 80%;
-  max-width: 340px;
+  flex: 0 0 82vw;
+  max-width: 360px;
   scroll-snap-align: center;
 }
 
-@media (min-width: 768px) {
-  .gcg-carousel-item {
-    flex-basis: 260px;
-  }
-}
-
-/* edges para indicar que hay más */
 .gcg-carousel-edge {
+  pointer-events: none;
   position: absolute;
   top: 0;
   bottom: 0;
   width: 32px;
-  pointer-events: none;
+  z-index: 2;
 }
 
 .gcg-carousel-edge--left {
   left: 0;
-  background: linear-gradient(to right, rgba(10, 10, 60, 0.9), transparent);
+  background: linear-gradient(to right, rgba(20, 20, 60, 0.85), transparent);
 }
 
 .gcg-carousel-edge--right {
   right: 0;
-  background: linear-gradient(to left, rgba(10, 10, 60, 0.9), transparent);
+  background: linear-gradient(to left, rgba(20, 20, 60, 0.85), transparent);
 }
 
-/* Cards un poco más grandes y táctiles */
+@media (min-width: 768px) {
+  .gcg-carousel-inner {
+    justify-content: center;
+  }
+  .gcg-carousel-item {
+    flex-basis: 260px;
+    max-width: 260px;
+  }
+}
+
+/* =========================================================
+   TARJETAS DE CUPÓN
+   ========================================================= */
+
 .gcg-card {
-  background: #fff;
-  border-radius: 14px;
-  padding: 0.9rem 1rem 1rem;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 190px;
+  justify-content: space-between;
+  height: 100%;
+  padding: 16px 14px 12px;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow:
+    0 10px 25px rgba(0, 0, 0, 0.18),
+    0 0 0 2px rgba(255, 255, 255, 0.35);
+  color: #222;
+  box-sizing: border-box;
+  transform: translateY(2px);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.gcg-card--active {
+  transform: translateY(0);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.25),
+    0 0 0 2px #ffdf7a;
+}
+
+/* Estilos diferentes según bucket */
+.gcg-card--direct {
+  background: linear-gradient(135deg, #fffbe6, #ffffff);
 }
 
 .gcg-card--game {
-  border: 2px solid #f92672;
+  background: linear-gradient(135deg, #ffe5ff, #ffffff);
 }
 
-.gcg-card--direct {
-  border: 2px solid #4285f4;
-}
-
+/* Header */
 .gcg-card-header {
   display: flex;
   justify-content: flex-start;
-  margin-bottom: 0.35rem;
 }
 
 .gcg-card-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
   font-size: 0.7rem;
   font-weight: 600;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.06);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #222;
+  color: #fff;
+}
+
+/* Body */
+.gcg-card-body {
+  margin: 10px 0 12px;
+  text-align: left;
 }
 
 .gcg-card-title {
-  font-size: 1rem;
-  font-weight: 700;
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  color: #222;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .gcg-card-example {
-  margin-top: 0.1rem;
-  font-size: 0.9rem;
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #ff6933;
 }
 
 .gcg-card-subtitle {
-  margin-top: 0.15rem;
-  font-size: 0.8rem;
-  opacity: 0.8;
+  margin: 0;
+  font-size: 0.9rem;
+  color: #555;
 }
 
+/* Footer */
 .gcg-card-footer {
-  margin-top: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 8px;
 }
 
 .gcg-card-stock {
-  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+  color: #444;
 }
 
-.gcg-card-cta {
-  border: none;
-  border-radius: 999px;
-  padding: 0.5rem 0.9rem;
+.gcg-card-stock-label {
+  opacity: 0.7;
+}
+
+.gcg-card-stock-value {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.gcg-card-stock-empty {
   font-size: 0.8rem;
   font-weight: 600;
-  cursor: pointer;
-  background: #f92672;
-  color: #fff;
+  color: #c53030;
+}
+
+/* CTA dentro de la tarjeta */
+.gcg-card-cta {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
   white-space: nowrap;
+  cursor: pointer;
+  background: #ff6933;
+  color: #fff;
+  box-shadow: 0 3px 0 rgba(158, 52, 17, 0.9);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.gcg-card-cta:hover:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgba(158, 52, 17, 0.9);
+}
+
+.gcg-card-cta:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+}
+
+@media (min-width: 768px) {
+  .gcg-card {
+    padding: 18px 18px 14px;
+  }
+}
+
+/* =========================================================
+   MODAL DE CLAIM
+   ========================================================= */
+
+.gcg-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.gcg-modal {
+  width: 92vw;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 18px 16px 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+}
+
+.gcg-modal-title {
+  margin: 0 0 6px;
+  font-size: 1.3rem;
+  text-align: center;
+}
+
+.gcg-modal-text {
+  margin: 0 0 12px;
+  font-size: 0.92rem;
+  text-align: center;
+}
+
+.gcg-modal-text--success {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.gcg-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gcg-modal-field span {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 2px;
+}
+
+.gcg-modal-field input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d4d4d4;
+  font-size: 0.9rem;
+}
+
+.gcg-modal-error {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: #b91c1c;
+}
+
+.gcg-modal-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.gcg-modal-btn {
+  flex: 1;
+  border-radius: 999px;
+  border: none;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gcg-modal-btn--primary {
+  background: #ff6933;
+  color: #fff;
+}
+
+.gcg-modal-btn--secondary {
+  background: #e5e7eb;
+  color: #111827;
 }
