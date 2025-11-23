@@ -1,168 +1,253 @@
-/* =========================================================
-   ROOT / LAYOUT GENERAL
-   ========================================================= */
-
+/* ===== Root / layout ===== */
 .gcg-root {
-  min-height: 100vh;
-  padding: 16px 12px 120px;
-  box-sizing: border-box;
+  /* sin min-height para que el footer suba hasta donde llegue el contenido */
+  padding-bottom: 24px;       /* un poco de azul por detrás del footer */
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  background: #4b8cff;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  justify-content: flex-start;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+
+  /* usamos los colores de la página de ventas */
+  --gcg-pink: #f92672;
+  --gcg-blue: #4285f4;
+  --gcg-card-max: var(--pc-card-max, 560px);
 }
 
 .gcg-root--casino {
-  background: radial-gradient(circle at top, #7fb3ff 0, #3663c9 40%, #1f3a7a 100%);
-}
-
-.gcg-header {
-  padding: 8px 8px 12px;
-  text-align: center;
+  background: linear-gradient(180deg, #4f8dfd 0%, #21408d 100%);
   color: #fff;
 }
 
+/* ===== Header ===== */
+.gcg-header {
+  padding: 12px 14px 6px;
+  text-align: center;
+}
+
+.gcg-header-text {
+  max-width: var(--gcg-card-max);
+  margin: 0 auto;
+}
+
 .gcg-title {
-  font-size: 1.8rem;
-  margin: 0 0 4px;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+  margin: 4px 0 4px;
+  font-family: "Baloo 2", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+  font-size: 1.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-shadow: 0 2px 0 rgba(10, 40, 120, 0.8);
 }
 
 .gcg-subtitle {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   line-height: 1.4;
-  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-/* =========================================================
-   STATES: LOADING / ERROR / EMPTY
-   ========================================================= */
-
+/* ===== States ===== */
 .gcg-state {
-  color: #fff;
+  padding: 24px 16px;
   text-align: center;
-  padding: 32px 16px;
   font-size: 0.95rem;
+  color: #fff;
 }
 
 .gcg-state--error small {
-  opacity: 0.8;
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
+  opacity: 0.8;
 }
 
-.gcg-state--empty {
-  opacity: 0.9;
-}
-
-/* =========================================================
-   CARRUSEL HORIZONTAL (SWIPE)
-   ========================================================= */
-
+/* ===== Gallery & carousel ===== */
 .gcg-gallery {
-  margin-top: 8px;
+  padding: 4px 0 6px;  /* compacto para acercar el footer */
+  display: flex;
+  justify-content: center;
 }
 
 .gcg-carousel {
   position: relative;
+  width: 100%;
+  max-width: var(--gcg-card-max);
   margin: 0 auto;
-  max-width: 480px;
+  padding: 8px 0 2px;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+}
+
+/* ocultar barra de scroll visualmente (push mobile look) */
+.gcg-carousel::-webkit-scrollbar {
+  height: 4px;
+}
+.gcg-carousel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.gcg-carousel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
 }
 
 .gcg-carousel-inner {
   display: flex;
-  flex-direction: row;
-  gap: 12px;
-  overflow-x: auto;
-  padding: 8px 24px 16px;
-  margin: 0 -24px;
-  scroll-snap-type: x mandatory;
-  scroll-padding: 24px;
-  -webkit-overflow-scrolling: touch;
+  align-items: stretch;
+  gap: 10px;
+  padding: 0 16px 6px;
+  box-sizing: border-box;
 }
 
 .gcg-carousel-item {
-  flex: 0 0 82vw;
-  max-width: 360px;
   scroll-snap-align: center;
+  flex: 0 0 auto;
+  width: min(88vw, var(--gcg-card-max));
 }
 
+/* ===== Edge gradients + arrows (hint de swipe) ===== */
 .gcg-carousel-edge {
-  pointer-events: none;
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 32px;
-  z-index: 2;
+  top: 6px;
+  bottom: 24px;   /* un pelín más bajo para seguir la altura de la card */
+  width: 38px;
+  pointer-events: none;
 }
 
 .gcg-carousel-edge--left {
   left: 0;
-  background: linear-gradient(to right, rgba(20, 20, 60, 0.85), transparent);
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 40, 0.9),
+    rgba(0, 0, 40, 0)
+  );
 }
-
 .gcg-carousel-edge--right {
   right: 0;
-  background: linear-gradient(to left, rgba(20, 20, 60, 0.85), transparent);
+  background: linear-gradient(
+    -90deg,
+    rgba(0, 0, 40, 0.9),
+    rgba(0, 0, 40, 0)
+  );
 }
 
-@media (min-width: 768px) {
-  .gcg-carousel-inner {
-    justify-content: center;
+/* Flechas animadas dentro de las sombras */
+.gcg-carousel-edge::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-right-color: transparent;
+  transform-origin: center;
+  opacity: 0.9;
+}
+
+.gcg-carousel-edge--left::after {
+  left: 14px;
+  transform: translateY(-50%) rotate(135deg);
+  animation: gcg-arrow-left 1.4s ease-in-out infinite;
+}
+.gcg-carousel-edge--right::after {
+  right: 14px;
+  transform: translateY(-50%) rotate(-45deg);
+  animation: gcg-arrow-right 1.4s ease-in-out infinite;
+}
+
+@keyframes gcg-arrow-left {
+  0% {
+    transform: translate(-4px, -50%) rotate(135deg);
+    opacity: 0;
   }
-  .gcg-carousel-item {
-    flex-basis: 260px;
-    max-width: 260px;
+  40% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(2px, -50%) rotate(135deg);
+    opacity: 0;
   }
 }
 
-/* =========================================================
-   TARJETAS DE CUPÓN
-   ========================================================= */
+@keyframes gcg-arrow-right {
+  0% {
+    transform: translate(4px, -50%) rotate(-45deg);
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-2px, -50%) rotate(-45deg);
+    opacity: 0;
+  }
+}
 
+/* ===== Cards ===== */
 .gcg-card {
+  box-sizing: border-box;
   position: relative;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  height: 100%;
-  padding: 16px 14px 12px;
-  border-radius: 18px;
-  background: #ffffff;
-  box-shadow:
-    0 10px 25px rgba(0, 0, 0, 0.18),
-    0 0 0 2px rgba(255, 255, 255, 0.35);
-  color: #222;
-  box-sizing: border-box;
-  transform: translateY(2px);
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    background 0.18s ease;
+
+  width: 100%;
+  /* altura más larga, tipo 350–380px en móviles */
+  min-height: clamp(280px, 60vh, 360px);
+  padding: 18px 18px 14px;
+  border-radius: 24px;
+
+  background: radial-gradient(
+      circle at top left,
+      rgba(255, 255, 255, 0.18),
+      transparent 45%
+    ),
+    linear-gradient(135deg, #ff5aa2, #f92672);
+  color: #ffffff;
+
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.28),
+    0 2px 6px rgba(0, 0, 0, 0.22);
+  transform: translateY(0) scale(0.97);
+  transition: transform 0.16s ease, box-shadow 0.18s ease,
+    background 0.2s ease;
 }
 
 .gcg-card--active {
-  transform: translateY(0);
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.25),
-    0 0 0 2px #ffdf7a;
+  transform: translateY(-2px) scale(1);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32),
+    0 4px 10px rgba(0, 0, 0, 0.35);
 }
 
-/* Estilos diferentes según bucket */
+/* Direct vs game: ligero ajuste de tono */
 .gcg-card--direct {
-  background: linear-gradient(135deg, #fffbe6, #ffffff);
+  background: radial-gradient(
+      circle at top left,
+      rgba(255, 255, 255, 0.15),
+      transparent 45%
+    ),
+    linear-gradient(135deg, #ff6cab, #f92672);
 }
-
 .gcg-card--game {
-  background: linear-gradient(135deg, #ffe5ff, #ffffff);
+  background: radial-gradient(
+      circle at top left,
+      rgba(255, 255, 255, 0.18),
+      transparent 45%
+    ),
+    linear-gradient(135deg, #525f26, #c8e705);
 }
 
 /* Header */
 .gcg-card-header {
   display: flex;
   justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 6px;
 }
 
 .gcg-card-badge {
@@ -171,39 +256,45 @@
   justify-content: center;
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: #222;
+  background: rgba(0, 0, 0, 0.82);
   color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
 }
 
 /* Body */
 .gcg-card-body {
-  margin: 10px 0 12px;
-  text-align: left;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;  /* centra mejor el bloque de texto */
 }
 
 .gcg-card-title {
-  margin: 0 0 6px;
-  font-size: 1.35rem;
-  line-height: 1.1;
-  color: #222;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  margin: 4px 0 4px;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-align: center;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
 }
 
 .gcg-card-example {
-  margin: 0 0 4px;
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: #ff6933;
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #ffeefc;
+  text-align: center;
 }
 
 .gcg-card-subtitle {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #555;
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
 }
 
 /* Footer */
@@ -211,100 +302,105 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 12px;
 }
 
 .gcg-card-stock {
   display: flex;
   flex-direction: column;
-  font-size: 0.8rem;
-  color: #444;
+  align-items: flex-start;
+  font-size: 0.76rem;
 }
 
 .gcg-card-stock-label {
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 .gcg-card-stock-value {
-  font-weight: 700;
-  font-size: 0.95rem;
+  font-weight: 800;
+  font-size: 0.98rem;
 }
 
 .gcg-card-stock-empty {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #c53030;
+  opacity: 0.9;
 }
 
-/* CTA dentro de la tarjeta */
 .gcg-card-cta {
-  flex-shrink: 0;
-  border: none;
+  flex: 0 0 auto;
+  min-width: 150px;
+  padding: 9px 12px;
   border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  white-space: nowrap;
+  border: 0;
+  font-weight: 800;
+  font-size: 0.86rem;
   cursor: pointer;
-  background: #ff6933;
-  color: #fff;
-  box-shadow: 0 3px 0 rgba(158, 52, 17, 0.9);
-  transition:
-    transform 0.12s ease,
-    box-shadow 0.12s ease,
-    opacity 0.12s ease;
+  background: #ffffff;
+  color: #1c3d8b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 7px 14px rgba(0, 0, 0, 0.25);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 }
 
 .gcg-card-cta:hover:not(:disabled) {
+  filter: brightness(0.97);
+  box-shadow: 0 9px 18px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.gcg-card-cta:active:not(:disabled) {
   transform: translateY(1px);
-  box-shadow: 0 1px 0 rgba(158, 52, 17, 0.9);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.24);
 }
 
 .gcg-card-cta:disabled {
-  opacity: 0.5;
-  cursor: default;
+  opacity: 0.55;
+  cursor: not-allowed;
   box-shadow: none;
 }
 
-@media (min-width: 768px) {
-  .gcg-card {
-    padding: 18px 18px 14px;
-  }
-}
-
-/* =========================================================
-   MODAL DE CLAIM
-   ========================================================= */
-
+/* ===== Modal ===== */
 .gcg-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.65);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 2000;
+  padding: 16px;
 }
 
 .gcg-modal {
-  width: 92vw;
-  max-width: 420px;
+  width: 100%;
+  max-width: var(--gcg-card-max);
   background: #ffffff;
+  color: #111827;
   border-radius: 18px;
-  padding: 18px 16px 16px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+  padding: 18px 18px 16px;
+  position: relative;
+  box-sizing: border-box;
 }
 
 .gcg-modal-title {
   margin: 0 0 6px;
-  font-size: 1.3rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #f92672;
   text-align: center;
 }
 
 .gcg-modal-text {
-  margin: 0 0 12px;
-  font-size: 0.92rem;
+  margin: 4px 0 12px;
+  font-size: 0.94rem;
   text-align: center;
+  color: #374151;
 }
 
 .gcg-modal-text--success {
@@ -318,49 +414,82 @@
   gap: 10px;
 }
 
-.gcg-modal-field span {
-  display: block;
-  font-size: 0.8rem;
-  margin-bottom: 2px;
+.gcg-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
 }
 
 .gcg-modal-field input {
-  width: 100%;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid #d4d4d4;
-  font-size: 0.9rem;
+  border-radius: 12px;
+  border: 1px solid #d4d4dd;
+  padding: 9px 11px;
+  font-size: 0.94rem;
+  outline: none;
+}
+
+.gcg-modal-field input:focus {
+  border-color: #4285f4;
+  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.18);
 }
 
 .gcg-modal-error {
   margin: 4px 0 0;
-  font-size: 0.8rem;
+  font-size: 0.86rem;
   color: #b91c1c;
 }
 
 .gcg-modal-actions {
-  margin-top: 14px;
   display: flex;
-  gap: 8px;
   justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .gcg-modal-btn {
-  flex: 1;
   border-radius: 999px;
-  border: none;
-  padding: 8px 10px;
+  border: 0;
+  padding: 8px 14px;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.gcg-modal-btn--primary {
-  background: #ff6933;
-  color: #fff;
+.gcg-modal-btn--secondary {
+  background: #f3f4f6;
+  color: #111827;
 }
 
-.gcg-modal-btn--secondary {
-  background: #e5e7eb;
-  color: #111827;
+.gcg-modal-btn--primary {
+  background: #4285f4;
+  color: #ffffff;
+}
+
+.gcg-modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== Small screens tweaks ===== */
+@media (max-width: 420px) {
+  .gcg-title {
+    font-size: 1.5rem;
+  }
+
+  .gcg-card {
+    border-radius: 22px;
+    padding: 16px 16px 12px;
+    min-height: 340px;   /* un poco más alta en móviles estrechos */
+  }
+
+  .gcg-card-title {
+    font-size: 1.15rem;
+  }
+
+  .gcg-card-cta {
+    min-width: 0;
+    padding-inline: 10px;
+    font-size: 0.82rem;
+  }
 }

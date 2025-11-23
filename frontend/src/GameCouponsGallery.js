@@ -1,7 +1,7 @@
 // src/components/GameCouponsGallery.js
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
+import "./GameCouponsGallery.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
