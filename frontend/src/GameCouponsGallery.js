@@ -8,9 +8,9 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 
-// 👉 Backend de cupones (VENTAS, no el backend del juego)
-const COUPONS_BASE =
-  "https://mycrushpizza-parche-production.up.railway.app/api/coupons";
+// 👉 Backend del juego (Express, proxy de /api/coupons/gallery)
+const BACKEND_BASE =
+  (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
 // Opcional: GAME_ID para ayudar a clasificar cupones de juego
 const GAME_ID = process.env.REACT_APP_GAME_ID
@@ -19,7 +19,11 @@ const GAME_ID = process.env.REACT_APP_GAME_ID
 
 // ---------------------- Fetch ----------------------
 async function fetchCouponsGallery() {
-  const res = await fetch(`${COUPONS_BASE}/gallery`, {
+  if (!BACKEND_BASE) {
+    throw new Error("REACT_APP_BACKEND_URL is not configured");
+  }
+
+  const res = await fetch(`${BACKEND_BASE}/game/coupons-gallery`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -36,8 +40,12 @@ async function fetchCouponsGallery() {
   return res.json();
 }
 
-// 🔗 Reclamo directo de cupón contra backend de ventas
+// 🔗 Reclamo directo de cupón (proxy al backend del juego)
 async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
+  if (!BACKEND_BASE) {
+    throw new Error("REACT_APP_BACKEND_URL is not configured");
+  }
+
   const payload = {
     phone,
     name,
@@ -47,7 +55,7 @@ async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
     ...(campaign != null ? { campaign } : {}),
   };
 
-  const res = await fetch(`${COUPONS_BASE}/direct-claim`, {
+  const res = await fetch(`${BACKEND_BASE}/game/direct-claim`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -65,6 +73,7 @@ async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
     );
   }
 
+  // El backend de juego ya normaliza a { ok: true/false, error? }
   return data || { ok: false, error: "empty_response" };
 }
 
@@ -284,6 +293,7 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
 
+  // Reset campos cuando se abre/cambia el grupo
   useEffect(() => {
     if (open) {
       setName("");
@@ -303,6 +313,7 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
     const trimmedName = String(name || "").trim();
 
     if (!trimmedPhone || trimmedPhone.length < 6) {
+      // validación ultra básica (luego podemos mejorar)
       alert("Por favor indica un número de teléfono válido.");
       return;
     }
@@ -328,7 +339,10 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
 
   return (
     <div className="gcg-modal-backdrop" onClick={sending ? undefined : onClose}>
-      <div className="gcg-modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="gcg-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="gcg-modal-title">
           {activeGroup?.bucket === "game"
             ? "Premio por jugar"
@@ -366,7 +380,7 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Ej: 694301433"
+                placeholder="Ej: 612345678"
                 required
               />
             </label>
@@ -418,6 +432,7 @@ export default function GameCouponsGallery() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // estado del modal de claim
   const [claimOpen, setClaimOpen] = useState(false);
   const [claimState, setClaimState] = useState({
     sending: false,
@@ -460,7 +475,7 @@ export default function GameCouponsGallery() {
     };
   }, []);
 
-  async function handlePrimaryAction() {
+  function handlePrimaryAction() {
     if (!activeGroup) return;
 
     if (activeGroup.bucket === "game") {
@@ -468,61 +483,9 @@ export default function GameCouponsGallery() {
       return;
     }
 
-    if (!activeGroup.rawCard) {
-      alert("No se puede identificar el tipo de cupón (falta rawCard).");
-      console.log("activeGroup sin rawCard:", activeGroup);
-      return;
-    }
-
-    const phone = window.prompt(
-      "Escribe tu número de móvil para recibir el cupón por SMS (ej. 694301433):"
-    );
-
-    if (!phone || !phone.trim()) {
-      return;
-    }
-
-    const name = window.prompt(
-      "Nombre (opcional): escribe tu nombre o deja vacío:"
-    );
-
-    const payload = {
-      phone: phone.trim(),
-      name: name && name.trim() ? name.trim() : undefined,
-      type: activeGroup.rawCard.type,
-      key: activeGroup.rawCard.key,
-      // opcionales:
-      // hours: 24,
-      // campaign: "GALLERY_DIRECT",
-    };
-
-    console.log("Direct claim payload:", payload);
-
-    try {
-      const res = await fetch(`${COUPONS_BASE}/direct-claim`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      console.log("Direct claim response:", data);
-
-      if (data.ok) {
-        alert(
-          `✅ Cupón emitido.\n\nCódigo: ${data.code}\nRevisa el SMS en el número ${phone.trim()}.`
-        );
-      } else {
-        alert(
-          `❌ No se pudo emitir el cupón.\n\nError: ${
-            data.error || "desconocido"
-          }`
-        );
-      }
-    } catch (e) {
-      console.error("Direct claim error:", e);
-      alert(`Error de red al emitir cupón: ${e.message}`);
-    }
+    // Direct: abre modal de captura
+    setClaimState({ sending: false, error: null, result: null });
+    setClaimOpen(true);
   }
 
   const handleSubmitClaim = async ({ name, phone }) => {
@@ -536,13 +499,22 @@ export default function GameCouponsGallery() {
         name,
         type: activeGroup.rawCard?.type,
         key: activeGroup.rawCard?.key,
+        // opcional: podrías pasar hours/campaign si quieres
       });
 
-      setClaimState({
-        sending: false,
-        error: null,
-        result: resp,
-      });
+      if (!resp.ok) {
+        setClaimState({
+          sending: false,
+          error: null, // lo traducimos en el modal
+          result: resp,
+        });
+      } else {
+        setClaimState({
+          sending: false,
+          error: null,
+          result: resp,
+        });
+      }
     } catch (e) {
       console.error("Error direct-claim:", e);
       setClaimState({
@@ -593,6 +565,7 @@ export default function GameCouponsGallery() {
 
         {!loading && !error && groups.length > 0 && (
           <>
+            {/* Galería de tarjetas (selectores) */}
             <section className="gcg-gallery">
               <div className="gcg-cards-container">
                 {groups.map((group) => (
@@ -606,6 +579,7 @@ export default function GameCouponsGallery() {
               </div>
             </section>
 
+            {/* SOLO botón de acción, sin descripción adicional */}
             {activeGroup && (
               <section className="gcg-detail">
                 <button
@@ -625,6 +599,7 @@ export default function GameCouponsGallery() {
           </>
         )}
 
+        {/* Modal de captura para cupones directos */}
         <ClaimModal
           open={claimOpen}
           onClose={() => {
@@ -638,6 +613,7 @@ export default function GameCouponsGallery() {
         />
       </main>
 
+      {/* Footer global de la página */}
       <footer className="footer">
         <div className="footer__inner">
           <p className="info-text">¡Más información aquí!</p>
