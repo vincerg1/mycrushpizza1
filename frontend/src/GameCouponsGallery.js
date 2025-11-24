@@ -610,8 +610,7 @@ export default function GameCouponsGallery() {
                 ))}
               </div>
               {/* efectos de sombra laterales para indicar más contenido */}
-              <div className="gcg-carousel-edge gcg-carousel-edge--left" />
-              <div className="gcg-carousel-edge gcg-carousel-edge--right" />
+              
             </div>
           </section>
         )}
