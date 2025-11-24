@@ -13,16 +13,21 @@
   --gcg-pink: #f92672;
   --gcg-blue: #4285f4;
   --gcg-card-max: var(--pc-card-max, 560px);
+
+  /* nuevos colores para cupones */
+  --gcg-gold-1: #ffd86b;
+  --gcg-gold-2: #ffb347;
+  --gcg-gold-3: #ffefc2;
 }
 
 .gcg-root--casino {
-  background: linear-gradient(180deg, #4f8dfd 0%, #21408d 100%);
+  background: radial-gradient(circle at top, #5ba0ff 0%, #1b2b69 55%, #05071a 100%);
   color: #fff;
 }
 
 /* ===== Header ===== */
 .gcg-header {
-  padding: 12px 14px 6px;
+  padding: 16px 14px 8px;
   text-align: center;
 }
 
@@ -35,18 +40,20 @@
   margin: 4px 0 4px;
   font-family: "Baloo 2", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, sans-serif;
-  font-size: 1.7rem;
-  letter-spacing: 0.08em;
+  font-size: 1.9rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #ffffff;
-  text-shadow: 0 2px 0 rgba(10, 40, 120, 0.8);
+  text-shadow:
+    0 0 10px rgba(255, 255, 255, 0.35),
+    0 3px 0 rgba(10, 40, 120, 0.9);
 }
 
 .gcg-subtitle {
   margin: 0;
-  font-size: 0.82rem;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: rgba(235, 244, 255, 0.96);
 }
 
 /* ===== States ===== */
@@ -65,7 +72,7 @@
 
 /* ===== Gallery & carousel ===== */
 .gcg-gallery {
-  padding: 4px 0 6px;  /* compacto para acercar el footer */
+  padding: 6px 0 8px;
   display: flex;
   justify-content: center;
 }
@@ -75,7 +82,7 @@
   width: 100%;
   max-width: var(--gcg-card-max);
   margin: 0 auto;
-  padding: 8px 0 2px;
+  padding: 10px 0 4px;
   overflow-x: auto;
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
@@ -97,8 +104,8 @@
 .gcg-carousel-inner {
   display: flex;
   align-items: stretch;
-  gap: 10px;
-  padding: 0 16px 6px;
+  gap: 16px;
+  padding: 0 18px 8px;
   box-sizing: border-box;
 }
 
@@ -112,7 +119,7 @@
 .gcg-carousel-edge {
   position: absolute;
   top: 6px;
-  bottom: 24px;   /* un pelín más bajo para seguir la altura de la card */
+  bottom: 30px;
   width: 38px;
   pointer-events: none;
 }
@@ -121,16 +128,16 @@
   left: 0;
   background: linear-gradient(
     90deg,
-    rgba(0, 0, 40, 0.9),
-    rgba(0, 0, 40, 0)
+    rgba(3, 5, 40, 0.95),
+    rgba(3, 5, 40, 0)
   );
 }
 .gcg-carousel-edge--right {
   right: 0;
   background: linear-gradient(
     -90deg,
-    rgba(0, 0, 40, 0.9),
-    rgba(0, 0, 40, 0)
+    rgba(3, 5, 40, 0.95),
+    rgba(3, 5, 40, 0)
   );
 }
 
@@ -139,8 +146,8 @@
   content: "";
   position: absolute;
   top: 50%;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, 0.85);
   border-top-color: transparent;
@@ -163,28 +170,28 @@
 
 @keyframes gcg-arrow-left {
   0% {
-    transform: translate(-4px, -50%) rotate(135deg);
+    transform: translate(-6px, -50%) rotate(135deg);
     opacity: 0;
   }
   40% {
     opacity: 1;
   }
   100% {
-    transform: translate(2px, -50%) rotate(135deg);
+    transform: translate(3px, -50%) rotate(135deg);
     opacity: 0;
   }
 }
 
 @keyframes gcg-arrow-right {
   0% {
-    transform: translate(4px, -50%) rotate(-45deg);
+    transform: translate(6px, -50%) rotate(-45deg);
     opacity: 0;
   }
   40% {
     opacity: 1;
   }
   100% {
-    transform: translate(-2px, -50%) rotate(-45deg);
+    transform: translate(-3px, -50%) rotate(-45deg);
     opacity: 0;
   }
 }
@@ -198,48 +205,90 @@
   justify-content: space-between;
 
   width: 100%;
-  /* altura más larga, tipo 350–380px en móviles */
-  min-height: clamp(280px, 60vh, 360px);
-  padding: 18px 18px 14px;
-  border-radius: 24px;
+  min-height: clamp(290px, 62vh, 380px);
+  padding: 20px 20px 16px;
+  border-radius: 26px;
 
-  background: radial-gradient(
-      circle at top left,
-      rgba(255, 255, 255, 0.18),
-      transparent 45%
-    ),
-    linear-gradient(135deg, #ff5aa2, #f92672);
+  /* fondo “casino glass” por defecto (cupón directo) */
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255,255,255,.22), transparent 55%),
+    radial-gradient(circle at 120% 120%, rgba(0,0,0,.55), transparent 60%),
+    linear-gradient(135deg, #ff5aa2, #f92672 40%, #ff6933 85%);
   color: #ffffff;
 
-  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.28),
-    0 2px 6px rgba(0, 0, 0, 0.22);
-  transform: translateY(0) scale(0.97);
-  transition: transform 0.16s ease, box-shadow 0.18s ease,
-    background 0.2s ease;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  box-shadow:
+    0 18px 35px rgba(0, 0, 0, 0.55),
+    0 0 25px rgba(249, 38, 114, 0.7);
+  transform: translateY(0) scale(0.96);
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background-position 3s ease;
+  background-size: 180% 180%;
 }
 
-.gcg-card--active {
-  transform: translateY(-2px) scale(1);
-  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32),
-    0 4px 10px rgba(0, 0, 0, 0.35);
+/* Hover / activo: glow fuerte */
+.gcg-card--active,
+.gcg-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow:
+    0 26px 50px rgba(0, 0, 0, 0.7),
+    0 0 32px rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.9);
 }
 
-/* Direct vs game: ligero ajuste de tono */
+/* Direct vs game: variantes de fondo */
 .gcg-card--direct {
-  background: radial-gradient(
-      circle at top left,
-      rgba(255, 255, 255, 0.15),
-      transparent 45%
-    ),
-    linear-gradient(135deg, #ff6cab, #f92672);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255,255,255,.22), transparent 55%),
+    radial-gradient(circle at 110% 120%, rgba(0,0,0,.55), transparent 60%),
+    linear-gradient(135deg, #4285f4 0%, #f92672 40%, #ffb003 100%);
 }
+
+/* Cupón de juego dorado */
 .gcg-card--game {
-  background: radial-gradient(
-      circle at top left,
-      rgba(255, 255, 255, 0.18),
-      transparent 45%
-    ),
-    linear-gradient(135deg, #525f26, #c8e705);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(255,255,255,.45), transparent 55%),
+    radial-gradient(circle at 120% 140%, rgba(0,0,0,.5), transparent 65%),
+    linear-gradient(135deg, var(--gcg-gold-1), var(--gcg-gold-2));
+  color: #24160b;
+  border-color: rgba(255, 244, 214, 0.95);
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.65),
+    0 0 32px rgba(255, 216, 107, 0.95);
+}
+
+/* Shimmer animado para el cupón de juego */
+.gcg-card--game::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255,255,255,0.9) 45%,
+    rgba(255,255,255,0.4) 60%,
+    transparent 100%
+  );
+  opacity: 0;
+  transform: translateX(-40%);
+  pointer-events: none;
+}
+
+/* Disparo del brillo cuando hover/activo */
+.gcg-card--game.gcg-card--active::before,
+.gcg-card--game:hover::before {
+  animation: gcg-shimmer 1.2s ease-out forwards;
+}
+
+@keyframes gcg-shimmer {
+  0%   { opacity: 0;   transform: translateX(-45%); }
+  15%  { opacity: 1; }
+  60%  { opacity: 0.4; transform: translateX(55%); }
+  100% { opacity: 0;   transform: translateX(95%); }
 }
 
 /* Header */
@@ -247,22 +296,23 @@
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 .gcg-card-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.09em;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  background: rgba(0, 0, 0, 0.82);
+  background: linear-gradient(135deg, #000000, #171923);
   color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 /* Body */
@@ -270,31 +320,42 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;  /* centra mejor el bloque de texto */
+  justify-content: center;
 }
 
 .gcg-card-title {
-  margin: 4px 0 4px;
-  font-size: 1.25rem;
+  margin: 6px 0 4px;
+  font-size: 1.5rem;
   font-weight: 900;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   text-align: center;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+  text-shadow:
+    0 0 10px rgba(0, 0, 0, 0.8),
+    0 2px 0 rgba(0, 0, 0, 0.8);
 }
 
 .gcg-card-example {
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: 1.05rem;
+  font-weight: 900;
   color: #ffeefc;
   text-align: center;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.65);
+}
+
+.gcg-card--game .gcg-card-example {
+  color: #5b3510;
 }
 
 .gcg-card-subtitle {
-  margin: 4px 0 0;
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.9);
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.96);
   text-align: center;
+}
+
+.gcg-card--game .gcg-card-subtitle {
+  color: rgba(40, 25, 5, 0.9);
 }
 
 /* Footer */
@@ -302,73 +363,172 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 12px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
+/* ===== Stock (con pill + pulse) ===== */
 .gcg-card-stock {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  font-size: 0.76rem;
+  font-size: 0.8rem;
 }
 
 .gcg-card-stock-label {
-  opacity: 0.85;
+  opacity: 0.9;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
 }
 
+/* pill por defecto, siempre con pulso suave */
 .gcg-card-stock-value {
-  font-weight: 800;
-  font-size: 0.98rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 0.92rem;
+  background: rgba(255,255,255,.22);
+  color: #fff;
+  box-shadow:
+    0 0 10px rgba(255, 255, 255, 0.5),
+    0 0 18px rgba(255, 255, 255, 0.3);
+  animation: gcg-stock-pulse 1.4s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* cuando el front añada gcg-card-stock-value--low (<=3) */
+.gcg-card-stock-value--low {
+  color: #2b59ff;
+  text-shadow: 0 0 10px rgba(255, 109, 109, 0.95);
+  animation-duration: 0.9s;
+}
+
+@keyframes gcg-stock-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow:
+      0 0 6px rgba(255, 255, 255, 0.4),
+      0 0 14px rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    transform: scale(1.12);
+    box-shadow:
+      0 0 10px rgba(255, 255, 255, 0.8),
+      0 0 26px rgba(255, 255, 255, 0.6);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 6px rgba(255, 255, 255, 0.4),
+      0 0 14px rgba(255, 255, 255, 0.2);
+  }
 }
 
 .gcg-card-stock-empty {
-  font-size: 0.8rem;
-  font-weight: 600;
-  opacity: 0.9;
+  font-size: 0.82rem;
+  font-weight: 700;
+  opacity: 0.95;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
+/* CTA */
 .gcg-card-cta {
   flex: 0 0 auto;
   min-width: 150px;
-  padding: 9px 12px;
+  padding: 10px 16px;
   border-radius: 999px;
   border: 0;
-  font-weight: 800;
-  font-size: 0.86rem;
+  font-weight: 900;
+  font-size: 0.92rem;
   cursor: pointer;
-  background: #ffffff;
+  background: radial-gradient(circle at 0% 0%, #ffffff, #f3f4ff);
   color: #1c3d8b;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  box-shadow: 0 7px 14px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 10px 20px rgba(0, 0, 0, 0.35),
+    0 0 14px rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 }
 
 .gcg-card-cta:hover:not(:disabled) {
   filter: brightness(0.97);
-  box-shadow: 0 9px 18px rgba(0, 0, 0, 0.3);
-  transform: translateY(-1px);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.45),
+    0 0 18px rgba(255, 255, 255, 0.9);
+  transform: translateY(-2px);
 }
 
 .gcg-card-cta:active:not(:disabled) {
   transform: translateY(1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.24);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.35);
 }
 
 .gcg-card-cta:disabled {
-  opacity: 0.55;
+  opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* ===== Estado SOLD OUT ===== */
+.gcg-card--soldout {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255,255,255,.08), transparent 55%),
+    linear-gradient(135deg, #5b6470, #2d3440);
+  color: rgba(255,255,255,.86);
+  filter: grayscale(0.3);
+  box-shadow: 0 12px 24px rgba(0,0,0,.55);
+  transform: translateY(0) scale(0.96);
+  border-color: rgba(209,213,219,0.8);
+}
+
+.gcg-card--soldout:hover {
+  transform: translateY(0) scale(0.96);
+  box-shadow: 0 12px 24px rgba(0,0,0,.55);
+}
+
+/* capa “AGOTADO” encima */
+.gcg-card--soldout::after {
+  content: "AGOTADO";
+  position: absolute;
+  inset: 12px;
+  border-radius: inherit;
+  border: 2px dashed rgba(255,255,255,.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1.05rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.96);
+  background: radial-gradient(circle at center, rgba(0,0,0,.55), transparent 65%);
+  pointer-events: none;
+}
+
+.gcg-card--soldout .gcg-card-cta {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+  background: #d1d5db;
+  color: #4b5563;
 }
 
 /* ===== Modal ===== */
 .gcg-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -381,16 +541,16 @@
   max-width: var(--gcg-card-max);
   background: #ffffff;
   color: #111827;
-  border-radius: 18px;
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
-  padding: 18px 18px 16px;
+  border-radius: 20px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  padding: 20px 20px 18px;
   position: relative;
   box-sizing: border-box;
 }
 
 .gcg-modal-title {
   margin: 0 0 6px;
-  font-size: 1.35rem;
+  font-size: 1.4rem;
   font-weight: 800;
   color: #f92672;
   text-align: center;
@@ -474,22 +634,22 @@
 /* ===== Small screens tweaks ===== */
 @media (max-width: 420px) {
   .gcg-title {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
   }
 
   .gcg-card {
-    border-radius: 22px;
-    padding: 16px 16px 12px;
-    min-height: 340px;   /* un poco más alta en móviles estrechos */
+    border-radius: 24px;
+    padding: 18px 16px 14px;
+    min-height: 340px;
   }
 
   .gcg-card-title {
-    font-size: 1.15rem;
+    font-size: 1.35rem;
   }
 
   .gcg-card-cta {
     min-width: 0;
-    padding-inline: 10px;
-    font-size: 0.82rem;
+    padding-inline: 12px;
+    font-size: 0.86rem;
   }
 }

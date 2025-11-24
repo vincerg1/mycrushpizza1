@@ -229,6 +229,8 @@ function normalizeGalleryData(raw) {
 
 /* ---------------------- Card component ---------------------- */
 
+/* ---------------------- Card component ---------------------- */
+
 function CouponCard({ group, isActive, onSelect, onPrimary }) {
   const {
     displayTitle,
@@ -243,18 +245,44 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
   const bucketClass =
     bucket === "game" ? "gcg-card--game" : "gcg-card--direct";
 
-  const hasStock = (items > 0 || stock > 0) || stock === null;
+  // --- Normalización de stock / remaining ---
+  // prioridad: stock agregado desde el backend → items → 0
+  let remaining =
+    typeof stock === "number"
+      ? stock
+      : typeof items === "number"
+      ? items
+      : 0;
 
-  const ctaLabel =
-    bucket === "game" ? "🎮 Jugar ahora" : "🎁 Conseguir cupón";
+  // null lo usamos para "ilimitado" (por si en algún momento lo mandas así)
+  const isUnlimited = stock === null;
+  if (isUnlimited) {
+    remaining = null;
+  }
+
+  const isSoldOut = !isUnlimited && remaining === 0;
+  const isLowStock =
+    !isUnlimited && !isSoldOut && typeof remaining === "number" && remaining <= 3;
+
+  const hasStock = !isSoldOut && (isUnlimited || (remaining ?? 0) > 0);
+
+  const ctaLabel = isSoldOut
+    ? "Sin stock"
+    : bucket === "game"
+    ? "🎮 Jugar ahora"
+    : "🎁 Conseguir cupón";
+
+  const cardClassName = [
+    "gcg-card",
+    bucketClass,
+    isActive ? "gcg-card--active" : "",
+    isSoldOut ? "gcg-card--soldout" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <article
-      className={`gcg-card ${bucketClass} ${
-        isActive ? "gcg-card--active" : ""
-      }`}
-      onClick={onSelect}
-    >
+    <article className={cardClassName} onClick={onSelect}>
       <header className="gcg-card-header">
         <span className="gcg-card-badge">{displayBadge}</span>
       </header>
@@ -262,9 +290,7 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
       <div className="gcg-card-body">
         <h2 className="gcg-card-title">{displayTitle}</h2>
 
-        {exampleText && (
-          <p className="gcg-card-example">{exampleText}</p>
-        )}
+        {exampleText && <p className="gcg-card-example">{exampleText}</p>}
 
         {displaySubtitle && (
           <p className="gcg-card-subtitle">{displaySubtitle}</p>
@@ -273,15 +299,29 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
 
       <footer className="gcg-card-footer">
         <div className="gcg-card-stock">
-          {hasStock ? (
+          {isUnlimited && (
             <>
               <span className="gcg-card-stock-label">Disponibles</span>
-              <span className="gcg-card-stock-value">
-                {stock === null ? "∞" : stock || items}
+              <span className="gcg-card-stock-value">∞</span>
+            </>
+          )}
+
+          {!isUnlimited && !isSoldOut && (
+            <>
+              <span className="gcg-card-stock-label">Disponibles</span>
+              <span
+                className={
+                  "gcg-card-stock-value" +
+                  (isLowStock ? " gcg-card-stock-value--low" : "")
+                }
+              >
+                {remaining}
               </span>
             </>
-          ) : (
-            <span className="gcg-card-stock-empty">Sin stock</span>
+          )}
+
+          {isSoldOut && (
+            <span className="gcg-card-stock-empty">Agotado</span>
           )}
         </div>
 
@@ -291,6 +331,7 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
           disabled={!hasStock}
           onClick={(e) => {
             e.stopPropagation();
+            if (!hasStock) return;
             onPrimary();
           }}
         >
@@ -300,6 +341,7 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
     </article>
   );
 }
+
 
 /* ---------------------- Claim modal ---------------------- */
 
