@@ -166,9 +166,6 @@ export default function PerfectTimingGame() {
     alt="MyCrushPizza"
     className="logo logo--in-card"
   />
-  <p className="ptg-subtitle ptg-subtitle--under-logo">
-    Stop at <strong>9.99</strong> seconds to win.
-  </p>
   </div>
 
       {/* ======= CUERPO DEL JUEGO ======= */}
@@ -202,8 +199,12 @@ export default function PerfectTimingGame() {
           </p>
 
           <div className="ptg-hint">
-            {result === null && (
-              <p>Tap START and try to hit exactly 9.99 sec.</p>
+           {result === null && (
+              <p>
+                <strong>Stop at 9.99 seconds to win.</strong>
+                <br />
+                Tap START and try to hit exactly 9.99 sec.
+              </p>
             )}
 
             {result === "win" && (
