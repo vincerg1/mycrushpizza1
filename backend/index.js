@@ -7,6 +7,7 @@
  *  – 🔗 Emisión de cupón FP en proyecto "ventas" al reclamar premio
  *  – ✉️ Emails con logs: al ganar y al reclamar
  *  – 🎯 FTW_EVERY: fuerza la victoria cada N intentos (persistente en BD)
+ *  – 🎯 Perfect Timing (Game #2) con cupones propios
  *****************************************************************/
 
 require('dotenv').config();
@@ -25,7 +26,12 @@ const PORT       = process.env.PORT     || 8080;
 const FORCE_WIN  = process.env.FORCE_WIN === '1';
 const FTW_EVERY  = Number(process.env.FTW_EVERY || 0); // 0 = desactivado
 
-/** 🔒 BLOQUEO DEL JUEGO */
+// 🎯 Perfect Timing (Game #2)
+const PT_TARGET_MS    = Number(process.env.PT_TARGET_MS || 9990);  // 9.99 s
+const PT_TOLERANCE_MS = Number(process.env.PT_TOLERANCE_MS || 40); // ±40 ms
+const PT_GAME_ID      = Number(process.env.PT_GAME_ID || 2);       // Game.id = 2 en ventas
+
+/** 🔒 BLOQUEO DEL JUEGO (Número Ganador) */
 const LOCK_MINUTES = Number(
   process.env.LOCK_MINUTES !== undefined ? process.env.LOCK_MINUTES : 1
 );
@@ -156,6 +162,7 @@ const safe = { ...cfg, password: cfg.password ? '***' + cfg.password.slice(-4) :
 console.log('🔍 Variables de conexión detectadas:');
 console.table(safe);
 console.log('🎯 FTW_EVERY =', FTW_EVERY, '| FORCE_WIN =', FORCE_WIN);
+console.log('🎯 PerfectTiming → TARGET_MS =', PT_TARGET_MS, 'TOLERANCE_MS =', PT_TOLERANCE_MS, 'GAME_ID =', PT_GAME_ID);
 
 /*-------------- 2. CREAR EL POOL Y PROBAR CONEXIÓN ---------------*/
 let db;
@@ -216,14 +223,17 @@ function getClientIp(req) {
   return (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
     .split(',')[0].trim();
 }
+
 async function getWinnerNumber() {
   const [[row]] = await db.query('SELECT numero FROM ganador ORDER BY id DESC LIMIT 1');
   return row ? row.numero : null;
 }
+
 async function getLock() {
   const [[st]] = await db.query('SELECT lock_until FROM juego_estado WHERE id=1');
   return st ? st.lock_until : null;
 }
+
 async function setLock(minutes = LOCK_MINUTES) {
   const [r] = await db.query(
     `UPDATE juego_estado
@@ -234,6 +244,7 @@ async function setLock(minutes = LOCK_MINUTES) {
   );
   return r.affectedRows;
 }
+
 async function clearLock() {
   await db.query('UPDATE juego_estado SET lock_until = NULL WHERE id = 1');
 }
@@ -246,8 +257,16 @@ async function bumpAndCheckFTW() {
   const c = Number(row?.ftw_counter || 0);
   return { hit: c > 0 && c % FTW_EVERY === 0, count: c };
 }
+
 // Nota: esta versión asume columna "extra" (JSON) en juego_historial.
-async function logEvent({ evento, intento_valor = null, resultado = null, numero_ganador = null, ip = null, extra = null }) {
+async function logEvent({
+  evento,
+  intento_valor = null,
+  resultado = null,
+  numero_ganador = null,
+  ip = null,
+  extra = null
+}) {
   try {
     await db.query(
       `INSERT INTO juego_historial (evento, intento_valor, resultado, numero_ganador, ip, extra)
@@ -258,6 +277,43 @@ async function logEvent({ evento, intento_valor = null, resultado = null, numero
     console.warn('⚠️  No se pudo escribir en juego_historial:', e.code || e.message);
   }
 }
+
+/* ---------- Perfect Timing: helpers propios ---------- */
+
+async function ptLogAttempt({ tiempoMs, deltaMs, resultado, ip }) {
+  try {
+    await db.query(
+      `INSERT INTO perfect_timing_historial (evento, tiempo_ms, delta_ms, resultado, ip)
+       VALUES ('attempt', ?, ?, ?, ?)`,
+      [tiempoMs, deltaMs, resultado, ip]
+    );
+  } catch (e) {
+    console.warn(
+      '⚠️  No se pudo escribir en perfect_timing_historial:',
+      e.code || e.message
+    );
+  }
+}
+
+async function ptInsertWinner({ tiempoMs, deltaMs }) {
+  const [r] = await db.query(
+    `INSERT INTO perfect_timing_ganador (tiempo_ms, delta_ms, reclamado)
+     VALUES (?, ?, 0)`,
+    [tiempoMs, deltaMs]
+  );
+  return r.insertId; // id del registro de ganador
+}
+
+async function ptGetWinnerById(id) {
+  const [[row]] = await db.query(
+    `SELECT id, tiempo_ms, delta_ms, contacto, reclamado, entregado
+       FROM perfect_timing_ganador
+      WHERE id = ?`,
+    [id]
+  );
+  return row || null;
+}
+
 /* ---------- 🔗 VENTAS: cliente HTTP JSON + idempotencia ---------- */
 function getJson(urlStr, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -296,6 +352,7 @@ function getJson(urlStr, headers = {}) {
     req.end();
   });
 }
+
 function postJson(urlStr, payload, headers = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(urlStr);
@@ -306,7 +363,11 @@ function postJson(urlStr, payload, headers = {}) {
       port: u.port || (isHttps ? 443 : 80),
       path: u.pathname + (u.search || ''),
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), ...headers },
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        ...headers
+      },
       timeout: 8000
     };
     const req = (isHttps ? https : http).request(options, (res) => {
@@ -325,15 +386,23 @@ function postJson(urlStr, payload, headers = {}) {
     req.end();
   });
 }
+
 function salesUrl(pathname) {
   const base = SALES.base.replace(/\/+$/, '');
   const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
   return `${base}${path}`;
 }
+
+/* ------------------------- START SERVER -------------------------- */
+
 function startServer () {
   const app = express();
   app.use(cors());
-   app.get('/game/coupons-gallery', async (req, res) => {
+  app.use(express.json());
+
+  /* ====== Galería / cupones directos ====== */
+
+  app.get('/game/coupons-gallery', async (req, res) => {
     if (!salesEnabled) {
       return res
         .status(503)
@@ -356,119 +425,121 @@ function startServer () {
         .json({ error: 'Failed to fetch coupons gallery from sales backend' });
     }
   });
-  app.use(express.json());
-app.post('/game/direct-claim', async (req, res) => {
-  if (!salesEnabled) {
-    return res
-      .status(503)
-      .json({ ok: false, error: 'sales_disabled' });
-  }
 
-  const ip = getClientIp(req);
-  const {
-    phone,
-    name,
-    type,
-    key,
-    hours,
-    campaign
-  } = req.body || {};
+  app.post('/game/direct-claim', async (req, res) => {
+    if (!salesEnabled) {
+      return res
+        .status(503)
+        .json({ ok: false, error: 'sales_disabled' });
+    }
 
-  const phoneRaw = String(phone || '').trim();
+    const ip = getClientIp(req);
+    const {
+      phone,
+      name,
+      type,
+      key,
+      hours,
+      campaign
+    } = req.body || {};
 
-  if (!phoneRaw || !type || !key) {
-    return res.json({
-      ok: false,
-      error: 'missing_params',
-      details: { phone: !!phoneRaw, type: !!type, key: !!key }
-    });
-  }
+    const phoneRaw = String(phone || '').trim();
 
-  // payload que enviamos al backend de Ventas
-  const payload = {
-    phone: phoneRaw,
-    name: name ? String(name).trim() : undefined,
-    type,
-    key,
-    ...(hours != null ? { hours } : {}),
-    ...(campaign != null ? { campaign } : {}),
-    ...(SALES.tenant ? { tenant: SALES.tenant } : {})
-  };
-
-  // ⚠️ IMPORTANTE: ruta real del backend de Ventas
-  const url = salesUrl('/api/coupons/direct-claim');
-
-  console.log('[game/direct-claim] → POST', url, 'payload:', payload);
-
-  try {
-    const { data } = await postJson(url, payload, {
-      'x-api-key': SALES.key
-    });
-
-    console.log('[game/direct-claim] ← response from sales:', data);
-
-    // log opcional en el histórico del juego
-    try {
-      await logEvent({
-        evento: 'direct_claim',
-        resultado: data?.ok ? 'ok' : 'fail',
-        numero_ganador: null,
-        ip,
-        extra: {
-          type,
-          key,
-          phone: phoneRaw,
-          backend: data
-        }
+    if (!phoneRaw || !type || !key) {
+      return res.json({
+        ok: false,
+        error: 'missing_params',
+        details: { phone: !!phoneRaw, type: !!type, key: !!key }
       });
-    } catch (_) {
-      // si falla el log, no rompemos la respuesta al usuario
     }
 
-    // devolvemos tal cual (data.ok true/false)
-    return res.json(data || { ok: false, error: 'empty_response' });
-  } catch (err) {
-    // Aquí puede venir un HTTP 4xx/5xx desde Ventas.
-    // Intentamos extraer el JSON del mensaje de error "HTTP 409: {...}"
-    const msg = err?.message || '';
-    let parsed = null;
+    // payload que enviamos al backend de Ventas
+    const payload = {
+      phone: phoneRaw,
+      name: name ? String(name).trim() : undefined,
+      type,
+      key,
+      ...(hours != null ? { hours } : {}),
+      ...(campaign != null ? { campaign } : {}),
+      ...(SALES.tenant ? { tenant: SALES.tenant } : {})
+    };
 
-    const idx = msg.indexOf('{');
-    if (idx !== -1) {
+    // ⚠️ IMPORTANTE: ruta real del backend de Ventas
+    const url = salesUrl('/api/coupons/direct-claim');
+
+    console.log('[game/direct-claim] → POST', url, 'payload:', payload);
+
+    try {
+      const { data } = await postJson(url, payload, {
+        'x-api-key': SALES.key
+      });
+
+      console.log('[game/direct-claim] ← response from sales:', data);
+
+      // log opcional en el histórico del juego
       try {
-        parsed = JSON.parse(msg.slice(idx));
+        await logEvent({
+          evento: 'direct_claim',
+          resultado: data?.ok ? 'ok' : 'fail',
+          numero_ganador: null,
+          ip,
+          extra: {
+            type,
+            key,
+            phone: phoneRaw,
+            backend: data
+          }
+        });
       } catch (_) {
-        parsed = null;
+        // si falla el log, no rompemos la respuesta al usuario
       }
+
+      // devolvemos tal cual (data.ok true/false)
+      return res.json(data || { ok: false, error: 'empty_response' });
+    } catch (err) {
+      const msg = err?.message || '';
+      let parsed = null;
+
+      const idx = msg.indexOf('{');
+      if (idx !== -1) {
+        try {
+          parsed = JSON.parse(msg.slice(idx));
+        } catch (_) {
+          parsed = null;
+        }
+      }
+
+      if (parsed && typeof parsed === 'object') {
+        console.warn('[game/direct-claim] upstream error (parsed JSON):', parsed);
+        // Normalizamos a 200 para que el front siempre reciba JSON {ok:false,...}
+        return res.json(parsed);
+      }
+
+      console.warn('[game/direct-claim] upstream error (raw):', msg);
+
+      return res.status(502).json({
+        ok: false,
+        error: 'upstream_error',
+        message: msg
+      });
     }
+  });
 
-    if (parsed && typeof parsed === 'object') {
-      console.warn('[game/direct-claim] upstream error (parsed JSON):', parsed);
-      // Normalizamos a 200 para que el front siempre reciba JSON {ok:false,...}
-      return res.json(parsed);
-    }
+  /* ====== Rutas básicas del juego Número Ganador ====== */
 
-    console.warn('[game/direct-claim] upstream error (raw):', msg);
-
-    return res.status(502).json({
-      ok: false,
-      error: 'upstream_error',
-      message: msg
-    });
-  }
-});
-
-app.get('/', async (_, res) =>
+  app.get('/', async (_, res) =>
     res.send(`Servidor funcionando correctamente 🚀 (${new Date().toISOString()})`)
-);
-app.get('/estado', async (_, res) => {
+  );
+
+  app.get('/estado', async (_, res) => {
     try {
       const numeroGanador = await getWinnerNumber();
       const lockedUntil   = await getLock();
       res.json({ numeroGanador, lockedUntil, now: new Date().toISOString() });
     } catch (e) { res.status(500).json(e); }
-});
-app.get('/lista-ganadores', async (_, res) => {
+  });
+
+  app.get('/lista-ganadores', async (_, res) => {
     try {
       const [rows] = await db.query(
         `SELECT id, numero
@@ -479,8 +550,9 @@ app.get('/lista-ganadores', async (_, res) => {
       );
       res.json(rows);
     } catch (e) { res.status(500).json(e); }
-});
-app.get('/verificar/:numero', async (req, res) => {
+  });
+
+  app.get('/verificar/:numero', async (req, res) => {
     const { numero } = req.params;
     try {
       const [rows] = await db.query(
@@ -494,23 +566,26 @@ app.get('/verificar/:numero', async (req, res) => {
         return res.status(404).json({ message: 'Número no encontrado o sin reclamar' });
       res.json(rows[0]);
     } catch (e) { res.status(500).json(e); }
-});
-app.get('/ganador', async (_, res) => {
+  });
+
+  app.get('/ganador', async (_, res) => {
     try {
       const numeroGanador = await getWinnerNumber();
       if (numeroGanador == null)
         return res.status(400).json({ message: 'No hay número ganador generado aún' });
       res.json({ numeroGanador });
     } catch (e) { res.status(500).json(e); }
-});
-app.post('/generar-ganador', async (_, res) => {
+  });
+
+  app.post('/generar-ganador', async (_, res) => {
     const n = Math.floor(Math.random() * 900) + 100; // 100-999
     try {
       await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [n]);
       res.json({ message: 'Número ganador generado 🎉', numeroGanador: n });
     } catch (e) { res.status(500).json(e); }
-});
-app.post('/intentar', async (req, res) => {
+  });
+
+  app.post('/intentar', async (req, res) => {
     const ip = getClientIp(req);
 
     try {
@@ -586,128 +661,132 @@ app.post('/intentar', async (req, res) => {
       console.warn('[intentar] error:', e?.message || e);
       res.status(500).json(e);
     }
-});
-app.post('/reclamar', async (req, res) => {
-  const { contacto, customerId, campaign } = req.body; // opcionales
-  const ip = getClientIp(req);
+  });
 
-  try {
-    // último ganador no reclamado
-    const [[g]] = await db.query(
-      'SELECT id, numero FROM ganador WHERE reclamado = 0 ORDER BY id DESC LIMIT 1'
-    );
-    if (!g) {
-      return res.status(400).json({ message: 'No hay número ganador activo para reclamar' });
-    }
+  app.post('/reclamar', async (req, res) => {
+    const { contacto, customerId, campaign } = req.body; // opcionales
+    const ip = getClientIp(req);
 
-    // marcar reclamo
-    await db.query(
-      `UPDATE ganador
-          SET reclamado = 1,
-              contacto = ?,
-              reclamado_en = CURRENT_TIMESTAMP
-        WHERE id = ?`,
-      [contacto || null, g.id]
-    );
-
-    await logEvent({
-      evento: 'claim',
-      resultado: 'ok',
-      numero_ganador: g.numero,
-      ip,
-      extra: { contacto: contacto || null }
-    });
-
-    /* ---------- 🔗 VENTAS: emitir cupón desde pool del juego ---------- */
-    let couponResp = null;
-    let couponErr  = null;
-
-    if (salesEnabled) {
-      const gameId = Number(process.env.GAME_ID || 1);
-      const url    = salesUrl(`/api/coupons/games/${gameId}/issue`);  // ← Opción A
-      const idem   = `claim-${g.id}`;
-      const hoursForCoupon =
-        Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
-
-      // payload aceptado por el backend de Ventas
-      const payload = {
-        hours: hoursForCoupon,
-        contact: contacto || undefined,        // SMS opcional en Ventas
-        gameNumber: g.numero,                  // contexto
-        customerId: customerId ? Number(customerId) : undefined,
-        campaign: campaign || process.env.GAME_CAMPAIGN || undefined
-      };
-
-      try {
-        const { data } = await postJson(url, payload, {
-          'x-api-key': SALES.key,
-          'x-idempotency-key': idem
-        });
-        couponResp = data || null;
-
-        await logEvent({
-          evento: 'coupon_issue',
-          resultado: 'ok',
-          numero_ganador: g.numero,
-          ip,
-          extra: { idem, returned: couponResp }
-        });
-      } catch (err) {
-        couponErr = err?.message || String(err);
-        console.warn('⚠️  Emisión de cupón (pool juego) falló:', couponErr);
-
-        await logEvent({
-          evento: 'coupon_issue',
-          resultado: 'fail',
-          numero_ganador: g.numero,
-          ip,
-          extra: { idem, error: couponErr }
-        });
+    try {
+      // último ganador no reclamado
+      const [[g]] = await db.query(
+        'SELECT id, numero FROM ganador WHERE reclamado = 0 ORDER BY id DESC LIMIT 1'
+      );
+      if (!g) {
+        return res.status(400).json({ message: 'No hay número ganador activo para reclamar' });
       }
-    } else {
-      console.log('ℹ️  Integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).');
-    }
 
-    // ✉️ Email a admin con los datos del reclamo
-    if (mailer) {
-      const couponForEmail = couponResp && {
-        code:      couponResp.code || couponResp.coupon?.code || null,
-        expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
-      };
-      mailer.notifyClaim({
-        numeroGanador: g.numero,
-        contacto: contacto || null,
+      // marcar reclamo
+      await db.query(
+        `UPDATE ganador
+            SET reclamado = 1,
+                contacto = ?,
+                reclamado_en = CURRENT_TIMESTAMP
+          WHERE id = ?`,
+        [contacto || null, g.id]
+      );
+
+      await logEvent({
+        evento: 'claim',
+        resultado: 'ok',
+        numero_ganador: g.numero,
         ip,
-        coupon: couponForEmail
-      }).catch(err => console.warn('[claim][email] error:', err?.message || err));
+        extra: { contacto: contacto || null }
+      });
+
+      /* ---------- 🔗 VENTAS: emitir cupón desde pool del juego ---------- */
+      let couponResp = null;
+      let couponErr  = null;
+
+      if (salesEnabled) {
+        const gameId = Number(process.env.GAME_ID || 1);
+        const url    = salesUrl(`/api/coupons/games/${gameId}/issue`);
+        const idem   = `claim-${g.id}`;
+        const hoursForCoupon =
+          Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
+
+        // payload aceptado por el backend de Ventas
+        const payload = {
+          hours: hoursForCoupon,
+          contact: contacto || undefined,        // SMS opcional en Ventas
+          gameNumber: g.numero,                  // contexto
+          customerId: customerId ? Number(customerId) : undefined,
+          campaign: campaign || process.env.GAME_CAMPAIGN || undefined
+        };
+
+        try {
+          const { data } = await postJson(url, payload, {
+            'x-api-key': SALES.key,
+            'x-idempotency-key': idem
+          });
+          couponResp = data || null;
+
+          await logEvent({
+            evento: 'coupon_issue',
+            resultado: 'ok',
+            numero_ganador: g.numero,
+            ip,
+            extra: { idem, returned: couponResp }
+          });
+        } catch (err) {
+          couponErr = err?.message || String(err);
+          console.warn('⚠️  Emisión de cupón (pool juego) falló:', couponErr);
+
+          await logEvent({
+            evento: 'coupon_issue',
+            resultado: 'fail',
+            numero_ganador: g.numero,
+            ip,
+            extra: { idem, error: couponErr }
+          });
+        }
+      } else {
+        console.log('ℹ️  Integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).');
+      }
+
+      // ✉️ Email a admin con los datos del reclamo
+      if (mailer) {
+        const couponForEmail = couponResp && {
+          code:      couponResp.code || couponResp.coupon?.code || null,
+          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
+        };
+        mailer.notifyClaim({
+          numeroGanador: g.numero,
+          contacto: contacto || null,
+          ip,
+          coupon: couponForEmail
+        }).catch(err => console.warn('[claim][email] error:', err?.message || err));
+      }
+
+      // generar nuevo número para la siguiente ronda
+      const nuevo = Math.floor(Math.random() * 900) + 100;
+      await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [nuevo]);
+
+      res.json({
+        message: 'Premio reclamado y nuevo número generado 🎊',
+        nuevoNumeroGanador: nuevo,
+        couponIssued: !!couponResp,
+        coupon: couponResp && {
+          code: couponResp.code || couponResp.coupon?.code || null,
+          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
+        },
+        couponError: couponErr
+      });
+    } catch (e) {
+      console.warn('[reclamar] error:', e?.message || e);
+      res.status(500).json(e);
     }
+  });
 
-    // generar nuevo número para la siguiente ronda
-    const nuevo = Math.floor(Math.random() * 900) + 100;
-    await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [nuevo]);
-
-    res.json({
-      message: 'Premio reclamado y nuevo número generado 🎊',
-      nuevoNumeroGanador: nuevo,
-      couponIssued: !!couponResp,
-      coupon: couponResp && {
-        code: couponResp.code || couponResp.coupon?.code || null,
-        expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
-      },
-      couponError: couponErr
-    });
-  } catch (e) {
-    console.warn('[reclamar] error:', e?.message || e);
-    res.status(500).json(e);
-  }
-});
-app.post('/actualizar-entrega', async (req, res) => {
+  app.post('/actualizar-entrega', async (req, res) => {
     const { numero } = req.body;
     try {
       await db.query('UPDATE ganador SET entregado = 1 WHERE numero = ?', [numero]);
       res.json({ message: 'Premio marcado como entregado ✔' });
     } catch (e) { res.status(500).json(e); }
-});
+  });
+
+  /* ====== Rutas DEV ====== */
 
   if (NODE_ENV !== 'production') {
     app.post('/__dev__/unlock', async (_, res) => {
@@ -728,6 +807,137 @@ app.post('/actualizar-entrega', async (req, res) => {
 
     console.log(`🧪 Modo prueba FORCE_WIN=${FORCE_WIN ? 'ON' : 'OFF'} | FTW_EVERY=${FTW_EVERY}`);
   }
+
+  /* ====== PERFECT TIMING – GAME #2 ====== */
+
+  /**
+   * POST /perfect/attempt
+   * Body: { timeMs }
+   */
+  app.post('/perfect/attempt', async (req, res) => {
+    const ip = getClientIp(req);
+    const { timeMs } = req.body || {};
+    const t = Number(timeMs);
+
+    if (!Number.isFinite(t) || t <= 0) {
+      return res.status(400).json({ ok: false, error: 'invalid_time' });
+    }
+
+    const delta = Math.abs(t - PT_TARGET_MS);
+    const isWin = delta <= PT_TOLERANCE_MS;
+
+    try {
+      await ptLogAttempt({
+        tiempoMs: t,
+        deltaMs: delta,
+        resultado: isWin ? 'win' : 'lose',
+        ip
+      });
+
+      let winId = null;
+      if (isWin) {
+        winId = await ptInsertWinner({ tiempoMs: t, deltaMs: delta });
+      }
+
+      return res.json({
+        ok: true,
+        isWin,
+        targetMs: PT_TARGET_MS,
+        deltaMs: delta,
+        winId
+      });
+    } catch (e) {
+      console.warn('[perfect/attempt] error:', e?.message || e);
+      return res.status(500).json({ ok: false, error: 'server_error' });
+    }
+  });
+
+  /**
+   * POST /perfect/claim
+   * Body: { winId, contacto, customerId?, campaign? }
+   */
+  app.post('/perfect/claim', async (req, res) => {
+    const ip = getClientIp(req);
+    const { winId, contacto, customerId, campaign } = req.body || {};
+
+    if (!winId) {
+      return res
+        .status(400)
+        .json({ ok: false, error: 'missing_win_id' });
+    }
+
+    try {
+      const winRow = await ptGetWinnerById(winId);
+      if (!winRow) {
+        return res
+          .status(404)
+          .json({ ok: false, error: 'win_not_found' });
+      }
+      if (winRow.reclamado) {
+        return res
+          .status(400)
+          .json({ ok: false, error: 'already_claimed' });
+      }
+
+      // 1) Marcar como reclamado
+      await db.query(
+        `UPDATE perfect_timing_ganador
+            SET reclamado    = 1,
+                contacto     = ?,
+                reclamado_en = CURRENT_TIMESTAMP
+          WHERE id = ?`,
+        [contacto || null, winRow.id]
+      );
+
+      // 2) Emitir cupón en VENTAS para GameId = PT_GAME_ID
+      let couponResp = null;
+      let couponErr  = null;
+
+      if (salesEnabled) {
+        const gameId = PT_GAME_ID;
+        const url    = salesUrl(`/api/coupons/games/${gameId}/issue`);
+        const idem   = `pt-claim-${winRow.id}`;
+        const hoursForCoupon =
+          Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
+
+        const payload = {
+          hours: hoursForCoupon,
+          contact: contacto || undefined,
+          gameNumber: winRow.tiempo_ms, // contexto: tiempo ganador
+          customerId: customerId ? Number(customerId) : undefined,
+          campaign: campaign || process.env.GAME_CAMPAIGN || undefined
+        };
+
+        try {
+          const { data } = await postJson(url, payload, {
+            'x-api-key': SALES.key,
+            'x-idempotency-key': idem
+          });
+          couponResp = data || null;
+        } catch (err) {
+          couponErr = err?.message || String(err);
+          console.warn('⚠️  Emisión de cupón (Perfect Timing) falló:', couponErr);
+        }
+      } else {
+        console.log('ℹ️  Integración con VENTAS deshabilitada para Perfect Timing (faltan SALES_API_URL / SALES_API_KEY).');
+      }
+
+      return res.json({
+        ok: true,
+        couponIssued: !!couponResp,
+        coupon: couponResp && {
+          code: couponResp.code || couponResp.coupon?.code || null,
+          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
+        },
+        couponError: couponErr,
+        tiempoMs: winRow.tiempo_ms,
+        deltaMs: winRow.delta_ms
+      });
+    } catch (e) {
+      console.warn('[perfect/claim] error:', e?.message || e);
+      return res.status(500).json({ ok: false, error: 'server_error' });
+    }
+  });
 
   /* ------------------- ARRANQUE ------------------- */
   app.listen(PORT, () =>
