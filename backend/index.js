@@ -20,13 +20,10 @@ const nodemailer  = require('nodemailer');
 const { URL } = require('url');
 const https = require('https');
 const http  = require('http');
-
 const NODE_ENV   = process.env.NODE_ENV || 'development';
 const PORT       = process.env.PORT     || 8080;
 const FORCE_WIN  = process.env.FORCE_WIN === '1';
 const FTW_EVERY  = Number(process.env.FTW_EVERY || 0); // 0 = desactivado
-
-// 🎯 Perfect Timing (Game #2)
 const PT_TARGET_MS    = Number(process.env.PT_TARGET_MS || 9990);  // 9.99 s
 const PT_TOLERANCE_MS = Number(process.env.PT_TOLERANCE_MS || 40); // ±40 ms
 const PT_GAME_ID      = Number(process.env.PT_GAME_ID || 2);       // Game.id = 2 en ventas
