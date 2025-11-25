@@ -808,16 +808,12 @@ function startServer () {
     console.log(`🧪 Modo prueba FORCE_WIN=${FORCE_WIN ? 'ON' : 'OFF'} | FTW_EVERY=${FTW_EVERY}`);
   }
 
-  /* ====== PERFECT TIMING – GAME #2 ====== */
 
-  /**
-   * POST /perfect/attempt
-   * Body: { timeMs }
-   */
+
   app.post('/perfect/attempt', async (req, res) => {
     const ip = getClientIp(req);
     const { timeMs } = req.body || {};
-    const t = Number(timeMs);
+    const t = Number(timeMs || 0);
 
     if (!Number.isFinite(t) || t <= 0) {
       return res.status(400).json({ ok: false, error: 'invalid_time' });
@@ -826,118 +822,101 @@ function startServer () {
     const delta = Math.abs(t - PT_TARGET_MS);
     const isWin = delta <= PT_TOLERANCE_MS;
 
-    try {
-      await ptLogAttempt({
-        tiempoMs: t,
-        deltaMs: delta,
-        resultado: isWin ? 'win' : 'lose',
-        ip
-      });
+    await ptLogAttempt({
+      tiempoMs: t,
+      deltaMs: delta,
+      resultado: isWin ? 'win' : 'lose',
+      ip
+    });
 
-      let winId = null;
-      if (isWin) {
-        winId = await ptInsertWinner({ tiempoMs: t, deltaMs: delta });
-      }
-
-      return res.json({
-        ok: true,
-        isWin,
-        targetMs: PT_TARGET_MS,
-        deltaMs: delta,
-        winId
-      });
-    } catch (e) {
-      console.warn('[perfect/attempt] error:', e?.message || e);
-      return res.status(500).json({ ok: false, error: 'server_error' });
+    let winId = null;
+    if (isWin) {
+      winId = await ptInsertWinner({ tiempoMs: t, deltaMs: delta });
     }
+
+    return res.json({
+      ok: true,
+      isWin,
+      deltaMs: delta,
+      winId
+    });
   });
 
-  /**
-   * POST /perfect/claim
-   * Body: { winId, contacto, customerId?, campaign? }
-   */
   app.post('/perfect/claim', async (req, res) => {
     const ip = getClientIp(req);
     const { winId, contacto, customerId, campaign } = req.body || {};
 
     if (!winId) {
-      return res
-        .status(400)
-        .json({ ok: false, error: 'missing_win_id' });
+      return res.status(400).json({ ok: false, error: 'missing_win_id' });
     }
 
-    try {
-      const winRow = await ptGetWinnerById(winId);
-      if (!winRow) {
-        return res
-          .status(404)
-          .json({ ok: false, error: 'win_not_found' });
-      }
-      if (winRow.reclamado) {
-        return res
-          .status(400)
-          .json({ ok: false, error: 'already_claimed' });
-      }
+    // 1) Buscar ganador no reclamado
+    const [[row]] = await db.query(
+      'SELECT id, tiempo_ms, delta_ms, reclamado FROM perfect_timing_ganador WHERE id = ?',
+      [winId]
+    );
 
-      // 1) Marcar como reclamado
-      await db.query(
-        `UPDATE perfect_timing_ganador
-            SET reclamado    = 1,
-                contacto     = ?,
-                reclamado_en = CURRENT_TIMESTAMP
-          WHERE id = ?`,
-        [contacto || null, winRow.id]
+    if (!row) {
+      return res.status(404).json({ ok: false, error: 'win_not_found' });
+    }
+    if (row.reclamado) {
+      return res.status(400).json({ ok: false, error: 'already_claimed' });
+    }
+
+    // 2) Marcar reclamado
+    await db.query(
+      `UPDATE perfect_timing_ganador
+          SET reclamado = 1,
+              contacto = ?,
+              reclamado_en = CURRENT_TIMESTAMP
+        WHERE id = ?`,
+      [contacto || null, row.id]
+    );
+
+    /* ---------- Emisión de cupón opcional (GameId=PT_GAME_ID) ---------- */
+    let couponResp = null;
+    let couponErr  = null;
+
+    if (salesEnabled) {
+      const gameId = PT_GAME_ID;
+      const url    = salesUrl(`/api/coupons/games/${gameId}/issue`);
+      const idem   = `perfect-claim-${row.id}`;
+      const hoursForCoupon =
+        Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
+
+      const payload = {
+        hours: hoursForCoupon,
+        contact: contacto || undefined,
+        gameNumber: row.tiempo_ms,
+        customerId: customerId ? Number(customerId) : undefined,
+        campaign: campaign || process.env.PT_GAME_CAMPAIGN || undefined
+      };
+
+      try {
+        const { data } = await postJson(url, payload, {
+          'x-api-key': SALES.key,
+          'x-idempotency-key': idem
+        });
+        couponResp = data || null;
+      } catch (err) {
+        couponErr = err?.message || String(err);
+        console.warn('⚠️  Emisión de cupón PerfectTiming falló:', couponErr);
+      }
+    } else {
+      console.log(
+        'ℹ️  PerfectTiming: integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).'
       );
-
-      // 2) Emitir cupón en VENTAS para GameId = PT_GAME_ID
-      let couponResp = null;
-      let couponErr  = null;
-
-      if (salesEnabled) {
-        const gameId = PT_GAME_ID;
-        const url    = salesUrl(`/api/coupons/games/${gameId}/issue`);
-        const idem   = `pt-claim-${winRow.id}`;
-        const hoursForCoupon =
-          Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
-
-        const payload = {
-          hours: hoursForCoupon,
-          contact: contacto || undefined,
-          gameNumber: winRow.tiempo_ms, // contexto: tiempo ganador
-          customerId: customerId ? Number(customerId) : undefined,
-          campaign: campaign || process.env.GAME_CAMPAIGN || undefined
-        };
-
-        try {
-          const { data } = await postJson(url, payload, {
-            'x-api-key': SALES.key,
-            'x-idempotency-key': idem
-          });
-          couponResp = data || null;
-        } catch (err) {
-          couponErr = err?.message || String(err);
-          console.warn('⚠️  Emisión de cupón (Perfect Timing) falló:', couponErr);
-        }
-      } else {
-        console.log('ℹ️  Integración con VENTAS deshabilitada para Perfect Timing (faltan SALES_API_URL / SALES_API_KEY).');
-      }
-
-      return res.json({
-        ok: true,
-        couponIssued: !!couponResp,
-        coupon: couponResp && {
-          code: couponResp.code || couponResp.coupon?.code || null,
-          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
-        },
-        couponError: couponErr,
-        tiempoMs: winRow.tiempo_ms,
-        deltaMs: winRow.delta_ms
-      });
-    } catch (e) {
-      console.warn('[perfect/claim] error:', e?.message || e);
-      return res.status(500).json({ ok: false, error: 'server_error' });
     }
+
+    return res.json({
+      ok: true,
+      claimed: true,
+      couponIssued: !!couponResp,
+      coupon: couponResp || null,
+      couponError: couponErr
+    });
   });
+
 
   /* ------------------- ARRANQUE ------------------- */
   app.listen(PORT, () =>
