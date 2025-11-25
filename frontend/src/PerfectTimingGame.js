@@ -160,19 +160,16 @@ export default function PerfectTimingGame() {
   return (
     <div className="container ptg-root">
       {/* ======= TARJETA BLANCA: LOGO + TÍTULO (estilo JuegoPizza) ======= */}
-      <div className="card ptg-header-card">
-        <img
-          src={logo}
-          alt="MyCrushPizza"
-          className="logo logo--in-card"
-        />
-        <div className="ptg-header-copy">
-          <h1 className="ptg-title">Perfect Timing</h1>
-          <p className="ptg-subtitle">
-            Stop at <strong>9.99</strong> seconds to win.
-          </p>
-        </div>
-      </div>
+   <div className="card ptg-header-card">
+  <img
+    src={logo}
+    alt="MyCrushPizza"
+    className="logo logo--in-card"
+  />
+  <p className="ptg-subtitle ptg-subtitle--under-logo">
+    Stop at <strong>9.99</strong> seconds to win.
+  </p>
+  </div>
 
       {/* ======= CUERPO DEL JUEGO ======= */}
       <div className="ptg-card">
