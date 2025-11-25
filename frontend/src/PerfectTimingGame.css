@@ -30,15 +30,11 @@
 
 /* capa con logo grande y opaco */
 .ptg-card-bg-logo {
-  position: absolute;
-  inset: -20%;
-  background-image: url("../../logo/HOYnuevoLogoMyCrushPizza.jpeg");
-  background-size: 65%;
+  background-image: url("./logo/HOYnuevoLogoMyCrushPizza.jpeg"); /* o "logo/..." */
   background-repeat: no-repeat;
   background-position: center;
-  opacity: 0.12;
-  filter: grayscale(0.2);
-  pointer-events: none;
+  background-size: contain;
+  opacity: 0.08; /* por ejemplo */
 }
 
 /* contenido por encima */
