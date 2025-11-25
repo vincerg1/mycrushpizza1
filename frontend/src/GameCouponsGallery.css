@@ -79,7 +79,7 @@
 
 .gcg-carousel {
   position: relative;
-  width: 100%;
+  width: 90%;
   max-width: var(--gcg-card-max);
   margin: 0 auto;
   padding: 10px 0 4px;
@@ -203,18 +203,17 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-
-  width: 100%;
-  min-height: clamp(290px, 62vh, 380px);
-  padding: 20px 20px 16px;
-  border-radius: 26px;
-
-  /* fondo “casino glass” por defecto (cupón directo) */
+  overflow: hidden;              
+  width: 95%;
+  min-height: clamp(240px, 48vh, 310px);
+  padding: 18px 18px 14px;
+  border-radius: 24px;
   background:
-    radial-gradient(circle at 0% 0%, rgba(255,255,255,.22), transparent 55%),
-    radial-gradient(circle at 120% 120%, rgba(0,0,0,.55), transparent 60%),
-    linear-gradient(135deg, #ff5aa2, #f92672 40%, #ff6933 85%);
+    radial-gradient(circle at 0% 0%, rgba(255,255,255,.24), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(0,0,0,.25), transparent 55%),
+    linear-gradient(135deg, #ff5aa2, #f92672);
   color: #ffffff;
+
 
   border: 2px solid rgba(255, 255, 255, 0.35);
   box-shadow:
@@ -226,9 +225,28 @@
     box-shadow 0.18s ease,
     border-color 0.18s ease,
     background-position 3s ease;
-  background-size: 180% 180%;
+  background-size: 140% 140%;
 }
-
+/* Logo grande y opaco dentro de la tarjeta */
+.gcg-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("./logo/pizza-box-top-view-02.png");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 130%;
+  opacity: 0.14;                 /* puedes subir/bajar este valor (0.10–0.20) */
+  mix-blend-mode: screen;        /* se fusiona con el gradiente */
+  pointer-events: none;
+  z-index: 0;
+}
+.gcg-card-header,
+.gcg-card-body,
+.gcg-card-footer {
+  position: relative;
+  z-index: 1;
+}
 /* Hover / activo: glow fuerte */
 .gcg-card--active,
 .gcg-card:hover {
@@ -336,7 +354,7 @@
 
 .gcg-card-example {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 5rem;
   font-weight: 900;
   color: #ffeefc;
   text-align: center;
@@ -373,6 +391,7 @@
   flex-direction: column;
   align-items: flex-start;
   font-size: 0.8rem;
+  font-weight: 900;
 }
 
 .gcg-card-stock-label {
@@ -440,7 +459,7 @@
 /* CTA */
 .gcg-card-cta {
   flex: 0 0 auto;
-  min-width: 150px;
+  max-width: 120px;
   padding: 10px 16px;
   border-radius: 999px;
   border: 0;

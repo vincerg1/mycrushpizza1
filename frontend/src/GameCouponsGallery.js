@@ -121,11 +121,11 @@ function formatCouponExample(example) {
 function mapTypeToTitle(type) {
   switch (type) {
     case "FIXED_PERCENT":
-      return "Descuento fijo";
+      return "DISCOUNT";
     case "RANDOM_PERCENT":
-      return "Descuento sorpresa";
+      return "MYSTERY DISCOUNT";
     case "FIXED_AMOUNT":
-      return "Descuento en €";
+      return "CASH DISCOUNT";
     default:
       return type || "Oferta";
   }
@@ -173,9 +173,22 @@ function normalizeGalleryData(raw) {
       const exampleText =
         title || formatCouponExample(c.sample || c.sampleAccepted || null);
 
-      const displaySubtitleRaw =
-        (c.subtitle && String(c.subtitle).trim()) || "";
-      const displaySubtitle = displaySubtitleRaw || makeSubtitle(exampleText);
+const displaySubtitleRaw =
+  (c.subtitle && String(c.subtitle).trim()) || "";
+
+let normalizedSubtitle = displaySubtitleRaw;
+const lowerSubtitle = displaySubtitleRaw.toLowerCase();
+
+// 🔤 Traducciones rápidas de texto que viene del backend
+if (lowerSubtitle === "gratis") {
+  normalizedSubtitle = "Free";
+} else if (lowerSubtitle.includes("jugar")) {
+  // para las tarjetas de juego usamos copy gamer en inglés
+  normalizedSubtitle = bucket === "game" ? "Play to win" : "Play bonus";
+}
+
+// si no viene nada, usamos el fallback generado en el front
+const displaySubtitle = normalizedSubtitle || makeSubtitle(exampleText);
 
       const items = 1;
       // stock ya viene agregado desde el backend
@@ -191,7 +204,7 @@ function normalizeGalleryData(raw) {
         displayTitle: mapTypeToTitle(type),
         displaySubtitle,
         displayBadge:
-          bucket === "game" ? "Premio por jugar" : "Cupón directo",
+          bucket === "game" ? "PLAY & WIN" : "REWARD",
         rawCard: c,
       };
     });
@@ -216,7 +229,7 @@ function normalizeGalleryData(raw) {
         exampleText,
         displayTitle: mapTypeToTitle(type),
         displaySubtitle: makeSubtitle(exampleText),
-        displayBadge: "Cupón directo",
+        displayBadge: "REWARD",
         rawCard: g,
       };
     });
@@ -269,8 +282,8 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
   const ctaLabel = isSoldOut
     ? "Sin stock"
     : bucket === "game"
-    ? "🎮 Jugar ahora"
-    : "🎁 Conseguir cupón";
+    ? "Play now"
+    : "Claim";
 
   const cardClassName = [
     "gcg-card",
@@ -301,14 +314,14 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
         <div className="gcg-card-stock">
           {isUnlimited && (
             <>
-              <span className="gcg-card-stock-label">Disponibles</span>
+              <span className="gcg-card-stock-label">IN STOCK</span>
               <span className="gcg-card-stock-value">∞</span>
             </>
           )}
 
           {!isUnlimited && !isSoldOut && (
             <>
-              <span className="gcg-card-stock-label">Disponibles</span>
+              <span className="gcg-card-stock-label">IN STOCK</span>
               <span
                 className={
                   "gcg-card-stock-value" +
@@ -321,7 +334,7 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
           )}
 
           {isSoldOut && (
-            <span className="gcg-card-stock-empty">Agotado</span>
+            <span className="gcg-card-stock-empty">SoldOut</span>
           )}
         </div>
 
@@ -401,8 +414,8 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
       >
         <h2 className="gcg-modal-title">
           {activeGroup?.bucket === "game"
-            ? "Premio por jugar"
-            : "Cupón directo"}
+            ? "PLAY & WIN"
+            : "REWARD"}
         </h2>
 
         {!success && (
