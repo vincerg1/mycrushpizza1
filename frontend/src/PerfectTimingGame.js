@@ -1,7 +1,7 @@
 //PerfectTimingGame.js
 import React, { useState, useRef, useEffect } from "react";
 import "./PerfectTimingGame.css";
-import logo from "../../logo/HOYnuevoLogoMyCrushPizza.jpeg"; // ajusta la ruta si hace falta
+import logo from "./logo/HOYnuevoLogoMyCrushPizza.jpeg";
 
 const TARGET_MS = 9990;   // 9,99 s
 const TOLERANCE_MS = 40;  // margen de acierto (40 ms ≈ 0,04 s)
