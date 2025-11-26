@@ -566,7 +566,7 @@ function handlePrimaryActionForGroup(group) {
     if (gameId === 1) {
       navigate("/jugar");      // juego 1 (el de siempre)
     } else if (gameId === 2) {
-      navigate("/jugar-2");    // ajusta a la ruta real de tu segundo juego
+      navigate("/perfect-timing");    // ajusta a la ruta real de tu segundo juego
     } else {
       // fallback por si llega algo raro
       navigate("/jugar");
