@@ -208,6 +208,10 @@ function normalizeGalleryData(raw) {
         displayTitle: mapTypeToTitle(type),
         displaySubtitle,
         displayBadge: isGameBucket ? "PLAY & WIN" : "REWARD",
+
+        // 👇 añadimos el gameId para usarlo al navegar
+        gameId: c.gameId ?? null,
+
         rawCard: c,
       };
     });
@@ -242,6 +246,7 @@ function normalizeGalleryData(raw) {
 
   return { groups: [] };
 }
+
 
 /* ---------------------- Card component ---------------------- */
 
@@ -548,23 +553,33 @@ export default function GameCouponsGallery() {
     };
   }, []);
 
-  function handlePrimaryActionForGroup(group) {
-    console.log("[GameCouponsGallery] Primary action on group:", group);
+function handlePrimaryActionForGroup(group) {
+  console.log("[GameCouponsGallery] Primary action on group:", group);
 
-    if (!group) return;
+  if (!group) return;
 
-    const isGameBucket = String(group.bucket || "").startsWith("game");
+  const isGameBucket = String(group.bucket || "").startsWith("game");
+  const gameId = group.gameId ?? group.rawCard?.gameId ?? null;
 
-    if (isGameBucket) {
+  if (isGameBucket) {
+    // 🔀 Mapea cada gameId a su ruta de juego
+    if (gameId === 1) {
+      navigate("/jugar");      // juego 1 (el de siempre)
+    } else if (gameId === 2) {
+      navigate("/jugar-2");    // ajusta a la ruta real de tu segundo juego
+    } else {
+      // fallback por si llega algo raro
       navigate("/jugar");
-      return;
     }
-
-    // direct → open modal for that group
-    setActiveGroup(group);
-    setClaimState({ sending: false, error: null, result: null });
-    setClaimOpen(true);
+    return;
   }
+
+  // direct → open modal for that group
+  setActiveGroup(group);
+  setClaimState({ sending: false, error: null, result: null });
+  setClaimOpen(true);
+}
+
 
   const handleSubmitClaim = async ({ name, phone }) => {
     if (!activeGroup) return;
