@@ -19,7 +19,10 @@ async function fetchCouponsGallery() {
     throw new Error("REACT_APP_BACKEND_URL is not configured");
   }
 
-  console.log("[GameCouponsGallery] Fetching gallery from:", `${BACKEND_BASE}/game/coupons-gallery`);
+  console.log(
+    "[GameCouponsGallery] Fetching gallery from:",
+    `${BACKEND_BASE}/game/coupons-gallery`
+  );
 
   const res = await fetch(`${BACKEND_BASE}/game/coupons-gallery`, {
     method: "GET",
@@ -70,7 +73,11 @@ async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
     );
   }
 
-  console.log("[GameCouponsGallery] /game/direct-claim response:", res.status, data);
+  console.log(
+    "[GameCouponsGallery] /game/direct-claim response:",
+    res.status,
+    data
+  );
   return data || { ok: false, error: "empty_response" };
 }
 
@@ -142,18 +149,13 @@ function classifyBucket(card) {
   const acq = card.acquisition;
   const channel = card.channel;
   const gameId = card.gameId;
-  const subtitle = (card.subtitle || "").toLowerCase();
-  const cta = (card.cta || "").toLowerCase();
 
-  if (acq === "GAME" || channel === "GAME") return "game";
-  if (GAME_ID != null && gameId === GAME_ID) return "game";
-
-  if (subtitle.includes("jugar") || cta.includes("jugar")) {
-    return "game";
+  // 🎯 Crea un bucket por cada juego
+  if (acq === "GAME" || channel === "GAME") {
+    return `game-${gameId || "unknown"}`;
   }
 
   if (acq === "CLAIM" || acq === "DIRECT") return "direct";
-
   return "direct";
 }
 
@@ -167,28 +169,30 @@ function normalizeGalleryData(raw) {
   if (Array.isArray(raw.cards)) {
     const groups = raw.cards.map((c) => {
       const bucket = classifyBucket(c);
+      const isGameBucket = String(bucket || "").startsWith("game");
       const type = c.type || "";
 
       const title = c.title || "";
       const exampleText =
         title || formatCouponExample(c.sample || c.sampleAccepted || null);
 
-const displaySubtitleRaw =
-  (c.subtitle && String(c.subtitle).trim()) || "";
+      const displaySubtitleRaw =
+        (c.subtitle && String(c.subtitle).trim()) || "";
 
-let normalizedSubtitle = displaySubtitleRaw;
-const lowerSubtitle = displaySubtitleRaw.toLowerCase();
+      let normalizedSubtitle = displaySubtitleRaw;
+      const lowerSubtitle = displaySubtitleRaw.toLowerCase();
 
-// 🔤 Traducciones rápidas de texto que viene del backend
-if (lowerSubtitle === "gratis") {
-  normalizedSubtitle = "Free";
-} else if (lowerSubtitle.includes("jugar")) {
-  // para las tarjetas de juego usamos copy gamer en inglés
-  normalizedSubtitle = bucket === "game" ? "Play to win" : "Play bonus";
-}
+      // 🔤 Traducciones rápidas de texto que viene del backend
+      if (lowerSubtitle === "gratis") {
+        normalizedSubtitle = "Free";
+      } else if (lowerSubtitle.includes("jugar")) {
+        // para las tarjetas de juego usamos copy gamer en inglés
+        normalizedSubtitle = isGameBucket ? "Play to win" : "Play bonus";
+      }
 
-// si no viene nada, usamos el fallback generado en el front
-const displaySubtitle = normalizedSubtitle || makeSubtitle(exampleText);
+      // si no viene nada, usamos el fallback generado en el front
+      const displaySubtitle =
+        normalizedSubtitle || makeSubtitle(exampleText);
 
       const items = 1;
       // stock ya viene agregado desde el backend
@@ -203,8 +207,7 @@ const displaySubtitle = normalizedSubtitle || makeSubtitle(exampleText);
         exampleText,
         displayTitle: mapTypeToTitle(type),
         displaySubtitle,
-        displayBadge:
-          bucket === "game" ? "PLAY & WIN" : "REWARD",
+        displayBadge: isGameBucket ? "PLAY & WIN" : "REWARD",
         rawCard: c,
       };
     });
@@ -242,8 +245,6 @@ const displaySubtitle = normalizedSubtitle || makeSubtitle(exampleText);
 
 /* ---------------------- Card component ---------------------- */
 
-/* ---------------------- Card component ---------------------- */
-
 function CouponCard({ group, isActive, onSelect, onPrimary }) {
   const {
     displayTitle,
@@ -255,8 +256,11 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
     bucket,
   } = group;
 
-  const bucketClass =
-    bucket === "game" ? "gcg-card--game" : "gcg-card--direct";
+  const isGameBucket = String(bucket || "").startsWith("game");
+
+  const bucketClass = isGameBucket
+    ? "gcg-card--game"
+    : "gcg-card--direct";
 
   // --- Normalización de stock / remaining ---
   // prioridad: stock agregado desde el backend → items → 0
@@ -275,13 +279,16 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
 
   const isSoldOut = !isUnlimited && remaining === 0;
   const isLowStock =
-    !isUnlimited && !isSoldOut && typeof remaining === "number" && remaining <= 3;
+    !isUnlimited &&
+    !isSoldOut &&
+    typeof remaining === "number" &&
+    remaining <= 3;
 
   const hasStock = !isSoldOut && (isUnlimited || (remaining ?? 0) > 0);
 
   const ctaLabel = isSoldOut
     ? "Sin stock"
-    : bucket === "game"
+    : isGameBucket
     ? "Play now"
     : "Claim";
 
@@ -355,7 +362,6 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
   );
 }
 
-
 /* ---------------------- Claim modal ---------------------- */
 
 function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
@@ -373,6 +379,9 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
 
   const { sending, error, result } = state || {};
   const success = result && result.ok;
+
+  const isGameBucket =
+    activeGroup && String(activeGroup.bucket || "").startsWith("game");
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -408,14 +417,9 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
       className="gcg-modal-backdrop"
       onClick={sending ? undefined : onClose}
     >
-      <div
-        className="gcg-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="gcg-modal" onClick={(e) => e.stopPropagation()}>
         <h2 className="gcg-modal-title">
-          {activeGroup?.bucket === "game"
-            ? "PLAY & WIN"
-            : "REWARD"}
+          {isGameBucket ? "PLAY & WIN" : "REWARD"}
         </h2>
 
         {!success && (
@@ -426,8 +430,8 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
 
         {success && (
           <p className="gcg-modal-text gcg-modal-text--success">
-            ✅ Hemos enviado tu cupón por SMS al número indicado.
-            ¡Revísalo en unos segundos!
+            ✅ Hemos enviado tu cupón por SMS al número indicado. ¡Revísalo en
+            unos segundos!
           </p>
         )}
 
@@ -549,7 +553,9 @@ export default function GameCouponsGallery() {
 
     if (!group) return;
 
-    if (group.bucket === "game") {
+    const isGameBucket = String(group.bucket || "").startsWith("game");
+
+    if (isGameBucket) {
       navigate("/jugar");
       return;
     }
@@ -620,8 +626,8 @@ export default function GameCouponsGallery() {
           <div className="gcg-header-text">
             <h1 className="gcg-title">Coupon Gallery</h1>
             <p className="gcg-subtitle">
-              Choose the type of offer you want to go for: free coupons,
-              game rewards, and more from MyCrushPizza.
+              Choose the type of offer you want to go for: free coupons, game
+              rewards, and more from MyCrushPizza.
             </p>
           </div>
         </header>
@@ -665,7 +671,6 @@ export default function GameCouponsGallery() {
                 ))}
               </div>
               {/* efectos de sombra laterales para indicar más contenido */}
-              
             </div>
           </section>
         )}
