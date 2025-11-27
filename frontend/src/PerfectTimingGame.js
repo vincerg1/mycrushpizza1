@@ -94,9 +94,9 @@ export default function PerfectTimingGame() {
   const rafIdRef = useRef(null);
   const startTimeRef = useRef(null);
 
-  /* --- Estados para premio/cupón (similar a JuegoPizza) --- */
+  /* --- Estados para premio/cupón (como JuegoPizza) --- */
   const [winnerModalOpen, setWinnerModalOpen] = useState(false);
-  const [contact, setContact] = useState("");
+  const [contacto, setContacto] = useState("");
   const [coupon, setCoupon] = useState(null);        // { code, expiresAt }
   const [couponError, setCouponError] = useState(null);
   const [isClaiming, setIsClaiming] = useState(false);
@@ -105,7 +105,7 @@ export default function PerfectTimingGame() {
   /* --- Bloqueo local del juego tras ganar --- */
   const [locked, setLocked] = useState(false);
 
-  // Inicializa el contador de redirecciones + bloqueo previo
+  // Inicializa contador de redirecciones + bloqueo
   useEffect(() => {
     try {
       const raw = localStorage.getItem(REDIRECT_SEQ_KEY);
@@ -117,7 +117,7 @@ export default function PerfectTimingGame() {
       const lockedFlag = localStorage.getItem(PTG_LOCK_KEY);
       if (lockedFlag === "1") {
         setLocked(true);
-        setResult("win"); // para que se vea el estado "ya hubo ganador"
+        setResult("win");
       }
     } catch {}
   }, []);
@@ -128,7 +128,6 @@ export default function PerfectTimingGame() {
 
     function tick(now) {
       if (!startTimeRef.current) {
-        // empezamos contando desde el estado actual
         startTimeRef.current = now - timeMs;
       }
       const elapsed = now - startTimeRef.current;
@@ -146,10 +145,8 @@ export default function PerfectTimingGame() {
   }, [running, timeMs]);
 
   function handleToggle() {
-    // Si ya está bloqueado o no quedan intentos, no hacemos nada
-    if (locked || (!running && attemptsLeft === 0)) {
-      return;
-    }
+    // 🔐 Si está bloqueado o no quedan intentos, no hace nada
+    if (locked || (!running && attemptsLeft === 0)) return;
 
     if (!running) {
       // START
@@ -167,18 +164,18 @@ export default function PerfectTimingGame() {
       const delta = Math.abs(timeMs - TARGET_MS);
       setDeltaMs(delta);
 
-      // 🔴 AHORA ESTÁ FORZADO PARA PROBAR EL MODAL Y EL BLOQUEO
+      // FORZADO PARA TESTEAR MODAL + BLOQUEO:
       const isWin = true;
-      // Cuando termines las pruebas, deja:
+      // Luego lo dejas en:
       // const isWin = delta <= TOLERANCE_MS;
 
       if (isWin) {
         setResult("win");
-        setPrizeName(null);       // se rellenará si el backend devuelve nombre
+        setPrizeName(null);
         setCoupon(null);
         setCouponError(null);
-        setWinnerModalOpen(true); // 👉 abre modal de ganador
-        setLocked(true);          // 👉 bloquea el juego tras ganar
+        setWinnerModalOpen(true);
+        setLocked(true);
         try {
           localStorage.setItem(PTG_LOCK_KEY, "1");
         } catch {}
@@ -186,7 +183,7 @@ export default function PerfectTimingGame() {
         setResult("lose");
       }
 
-      // Consumimos intento y, si se acaban sin ganar, redirigimos
+      // Intentos + redirección si pierdes todos
       setAttemptsLeft((prev) => {
         if (prev <= 0) return 0;
         const next = prev - 1;
@@ -197,14 +194,13 @@ export default function PerfectTimingGame() {
             setTimeout(() => window.location.assign(url), 2000);
           })();
         }
-
         return next;
       });
     }
   }
 
   async function reclamarCupon() {
-    if (!contact) {
+    if (!contacto) {
       alert("Por favor, ingresa un número de contacto.");
       return;
     }
@@ -213,8 +209,8 @@ export default function PerfectTimingGame() {
 
     try {
       const { data } = await axios.post(`${API_BASE}/reclamar`, {
-        contacto: contact,
-        gameId: 2, // importante para que el backend asocie al GAME_ID=2
+        contacto,
+        gameId: 2,
       });
 
       console.log("[PerfectTime /reclamar] resp:", data);
@@ -244,9 +240,9 @@ export default function PerfectTimingGame() {
     }
   }
 
-  function cerrarModalGanador() {
+  const cerrarModalGanador = () => {
     setWinnerModalOpen(false);
-  }
+  };
 
   const displayTime = formatTime(timeMs);
   const offBySeconds =
@@ -254,22 +250,22 @@ export default function PerfectTimingGame() {
 
   return (
     <div className="container ptg-root">
-      {/* 🎊 Confetti cuando hay win */}
+      {/* Confetti estilo JuegoPizza */}
       {result === "win" && (
         <Confetti
-          numberOfPieces={280}
-          style={{ pointerEvents: "none", zIndex: 5 }}
+          numberOfPieces={300}
+          style={{ zIndex: 1, pointerEvents: "none" }}
         />
       )}
 
-      {/* Mensaje de bloqueo simple */}
+      {/* Banner simple si ya está bloqueado */}
       {locked && (
         <div className="ptg-lock-banner">
           Ya hubo un ganador en este dispositivo. Vuelve más tarde 🎉
         </div>
       )}
 
-      {/* ======= TARJETA BLANCA: LOGO ======= */}
+      {/* ====== TARJETA BLANCA: LOGO ====== */}
       <div className="card ptg-header-card">
         <img
           src={logo}
@@ -278,7 +274,7 @@ export default function PerfectTimingGame() {
         />
       </div>
 
-      {/* ======= CUERPO DEL JUEGO ======= */}
+      {/* ====== CUERPO DEL JUEGO ====== */}
       <div className="ptg-card">
         <main className="ptg-main">
           <div
@@ -339,7 +335,7 @@ export default function PerfectTimingGame() {
         </main>
       </div>
 
-      {/* ======= MODAL GANADOR / CUPÓN ======= */}
+      {/* --------- MODAL GANADOR / CUPÓN (copiado de JuegoPizza) --------- */}
       {winnerModalOpen && (
         <div
           className="modal"
@@ -348,10 +344,7 @@ export default function PerfectTimingGame() {
           onClick={cerrarModalGanador}
           style={{ zIndex: 200000 }}
         >
-          <div
-            className="modal-contenido"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="modal-contenido" onClick={(e) => e.stopPropagation()}>
             <button
               className="modal-close"
               aria-label="Cerrar"
@@ -363,25 +356,16 @@ export default function PerfectTimingGame() {
 
             {!coupon ? (
               <>
-                <h2
-                  style={{
-                    fontSize: "1.4rem",
-                    textAlign: "center",
-                    lineHeight: 1.3,
-                    marginBottom: "0.75rem",
-                  }}
-                >
+                <h2>
                   🎉 ¡Ganaste un cupón
                   {prizeName ? ` de ${prizeName}` : ""} 🎉
                 </h2>
-                <p style={{ textAlign: "center", marginBottom: "0.75rem" }}>
-                  Ingresa tu número de contacto para reclamarlo:
-                </p>
+                <p>Ingresa tu número de contacto para reclamarlo:</p>
                 <input
                   type="text"
                   placeholder="Tu número"
-                  value={contact}
-                  onChange={(e) => setContact(e.target.value)}
+                  value={contacto}
+                  onChange={(e) => setContacto(e.target.value)}
                 />
                 <button
                   className="boton-reclamar"
@@ -398,17 +382,8 @@ export default function PerfectTimingGame() {
               </>
             ) : (
               <>
-                <h2
-                  style={{
-                    fontSize: "1.4rem",
-                    textAlign: "center",
-                    lineHeight: 1.3,
-                    marginBottom: "0.75rem",
-                  }}
-                >
-                  🎟️ ¡Cupón listo!
-                </h2>
-                <p style={{ textAlign: "center" }}>
+                <h2>🎟️ ¡Cupón listo!</h2>
+                <p>
                   Usa este código en el portal de ventas dentro del tiempo
                   indicado.
                 </p>
@@ -438,7 +413,7 @@ export default function PerfectTimingGame() {
         </div>
       )}
 
-      {/* ======= FOOTER ======= */}
+      {/* ======= FOOTER IGUAL QUE JuegoPizza ======= */}
       <footer className="footer">
         <div className="footer__inner">
           <p className="info-text">¡Más información aquí!</p>
