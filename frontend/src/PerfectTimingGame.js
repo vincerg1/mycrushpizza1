@@ -139,6 +139,25 @@ export default function PerfectTimingGame() {
     } catch {}
   }, []);
 
+  /* ===== CARGA ESTADO DESDE SERVIDOR (como JuegoPizza) ===== */
+  useEffect(() => {
+    if (!API_BASE) return;
+    axios
+      .get(`${API_BASE}/estado`)
+      .then((res) => {
+        const { lockedUntil: srvLockedUntil } = res.data || {};
+        console.log("[PTG /estado]", res.data);
+        if (srvLockedUntil) {
+          setLockedUntil(srvLockedUntil);
+          localStorage.setItem(PTG_LOCK_UNTIL_KEY, srvLockedUntil);
+          setShowLockModal(true);
+        }
+      })
+      .catch((err) => {
+        console.error("PTG /estado error:", err);
+      });
+  }, []);
+
   /* --------- Ticker del countdown (igual patrón que JuegoPizza) --------- */
   useEffect(() => {
     if (!lockedUntil) return;
@@ -215,7 +234,7 @@ export default function PerfectTimingGame() {
         setCouponError(null);
         setModalAbierto(true); // abre modal de cupón
 
-        // igual que JuegoPizza: dejamos lockedUntil preparado
+        // dejamos lockedUntil preparado (mismo patrón que JuegoPizza)
         const until = new Date(Date.now() + PTG_LOCK_MINUTES * 60 * 1000);
         const iso = until.toISOString();
         setLockedUntil(iso);
