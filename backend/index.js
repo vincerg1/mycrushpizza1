@@ -192,6 +192,7 @@ let db;
 
     // Seguridad: asegurar fila única en juego_estado (id=1)
     await db.query('INSERT IGNORE INTO juego_estado (id) VALUES (1)');
+    await db.query('INSERT IGNORE INTO perfect_timing_estado (id) VALUES (1)');
 
     // 🎯 Columna contador FTW (idempotente)
     try {
@@ -228,6 +229,12 @@ async function getWinnerNumber() {
 
 async function getLock() {
   const [[st]] = await db.query('SELECT lock_until FROM juego_estado WHERE id=1');
+  return st ? st.lock_until : null;
+}
+async function ptGetLock() {
+  const [[st]] = await db.query(
+    'SELECT lock_until FROM perfect_timing_estado WHERE id = 1'
+  );
   return st ? st.lock_until : null;
 }
 
@@ -535,6 +542,15 @@ function startServer () {
       res.json({ numeroGanador, lockedUntil, now: new Date().toISOString() });
     } catch (e) { res.status(500).json(e); }
   });
+
+  app.get('/perfect/estado', async (_, res) => {
+  try {
+    const lockedUntil = await ptGetLock();
+    res.json({ lockedUntil, now: new Date().toISOString() });
+  } catch (e) {
+    res.status(500).json(e);
+  }
+});
 
   app.get('/lista-ganadores', async (_, res) => {
     try {
@@ -903,6 +919,16 @@ function startServer () {
       console.log(
         'ℹ️  PerfectTiming: integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).'
       );
+    }
+ try {
+      await db.query(
+        `UPDATE perfect_timing_estado
+            SET lock_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? MINUTE)
+          WHERE id = 1`,
+        [LOCK_MINUTES]
+      );
+    } catch (e) {
+      console.warn('⚠️ No se pudo actualizar perfect_timing_estado.lock_until:', e.message || e);
     }
 
     return res.json({
