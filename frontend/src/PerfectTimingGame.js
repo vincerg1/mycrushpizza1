@@ -22,6 +22,9 @@ const INSTAGRAM_URL = "https://www.mycrushpizza.com/venta";
 const REDIRECT_SEQ_KEY  = "mcp_redirect_seq";
 const REDIRECT_LOCK_KEY = "mcp_redirect_lock";
 
+/* Bloqueo local del juego (por dispositivo) */
+const PTG_LOCK_KEY = "mcp_ptg_locked"; // "1" si ya ganó este dispositivo
+
 /** Lock ligero con localStorage para serializar escrituras entre pestañas */
 async function withLocalStorageLock(fn, { timeoutMs = 700 } = {}) {
   const token = `${Date.now()}_${Math.random()}`;
@@ -102,7 +105,7 @@ export default function PerfectTimingGame() {
   /* --- Bloqueo local del juego tras ganar --- */
   const [locked, setLocked] = useState(false);
 
-  // Inicializa el contador de redirecciones (igual que en JuegoPizza)
+  // Inicializa el contador de redirecciones + bloqueo previo
   useEffect(() => {
     try {
       const raw = localStorage.getItem(REDIRECT_SEQ_KEY);
@@ -110,6 +113,12 @@ export default function PerfectTimingGame() {
         localStorage.setItem(REDIRECT_SEQ_KEY, "0");
       }
       localStorage.removeItem("mcp_redirect_toggle");
+
+      const lockedFlag = localStorage.getItem(PTG_LOCK_KEY);
+      if (lockedFlag === "1") {
+        setLocked(true);
+        setResult("win"); // para que se vea el estado "ya hubo ganador"
+      }
     } catch {}
   }, []);
 
@@ -158,8 +167,10 @@ export default function PerfectTimingGame() {
       const delta = Math.abs(timeMs - TARGET_MS);
       setDeltaMs(delta);
 
-      // PARA TESTS: win forzado
-      const isWin = true; // <-- cuando acabes las pruebas, pon: delta <= TOLERANCE_MS;
+      // 🔴 AHORA ESTÁ FORZADO PARA PROBAR EL MODAL Y EL BLOQUEO
+      const isWin = true;
+      // Cuando termines las pruebas, deja:
+      // const isWin = delta <= TOLERANCE_MS;
 
       if (isWin) {
         setResult("win");
@@ -168,6 +179,9 @@ export default function PerfectTimingGame() {
         setCouponError(null);
         setWinnerModalOpen(true); // 👉 abre modal de ganador
         setLocked(true);          // 👉 bloquea el juego tras ganar
+        try {
+          localStorage.setItem(PTG_LOCK_KEY, "1");
+        } catch {}
       } else {
         setResult("lose");
       }
@@ -240,7 +254,7 @@ export default function PerfectTimingGame() {
 
   return (
     <div className="container ptg-root">
-      {/* 🎊 Confetti cuando hay win (aunque cierres el modal) */}
+      {/* 🎊 Confetti cuando hay win */}
       {result === "win" && (
         <Confetti
           numberOfPieces={280}
@@ -255,7 +269,7 @@ export default function PerfectTimingGame() {
         </div>
       )}
 
-      {/* ======= TARJETA BLANCA: LOGO + TÍTULO (estilo JuegoPizza) ======= */}
+      {/* ======= TARJETA BLANCA: LOGO ======= */}
       <div className="card ptg-header-card">
         <img
           src={logo}
@@ -325,7 +339,7 @@ export default function PerfectTimingGame() {
         </main>
       </div>
 
-      {/* ======= MODAL GANADOR / CUPÓN (Perfect Time) ======= */}
+      {/* ======= MODAL GANADOR / CUPÓN ======= */}
       {winnerModalOpen && (
         <div
           className="modal"
@@ -424,7 +438,7 @@ export default function PerfectTimingGame() {
         </div>
       )}
 
-      {/* ======= FOOTER IGUAL QUE JuegoPizza ======= */}
+      {/* ======= FOOTER ======= */}
       <footer className="footer">
         <div className="footer__inner">
           <p className="info-text">¡Más información aquí!</p>
