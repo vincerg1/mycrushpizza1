@@ -153,7 +153,7 @@ export default function PerfectTimingGame() {
       }
       const delta = Math.abs(timeMs - TARGET_MS);
       setDeltaMs(delta);
-      const isWin = delta <= TOLERANCE_MS;
+      const isWin = true;
 
       if (isWin) {
         setResult("win");
