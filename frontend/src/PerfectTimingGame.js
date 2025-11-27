@@ -5,10 +5,14 @@ import logo from "./logo/HOYnuevoLogoMyCrushPizza.jpeg";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
+import axios from "axios";
 
 const TARGET_MS = 9990;   // 9,99 s
 const TOLERANCE_MS = 40;  // margen de acierto (40 ms ≈ 0,04 s)
 const MAX_ATTEMPTS = 10;
+
+/* ========= Backend del juego ========= */
+const API_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
 /* ========= Redirecciones (mismo esquema que JuegoPizza) ========= */
 const TIKTOK_URL    = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
@@ -62,6 +66,14 @@ async function getNextRedirectUrl() {
   }
 }
 
+/* ========= Portal de ventas para aplicar el cupón ========= */
+const SALES_URL = "https://www.mycrushpizza.com/venta";
+function goToSalesWithCoupon(code) {
+  const url = new URL(SALES_URL);
+  url.searchParams.set("coupon", code);
+  window.location.href = url.toString();
+}
+
 /* ---------------- Helpers ---------------- */
 function formatTime(ms) {
   const seconds = ms / 1000;
@@ -77,6 +89,14 @@ export default function PerfectTimingGame() {
 
   const rafIdRef = useRef(null);
   const startTimeRef = useRef(null);
+
+  /* --- Estados para premio/cupón (similar a JuegoPizza) --- */
+  const [winnerModalOpen, setWinnerModalOpen] = useState(false);
+  const [contact, setContact] = useState("");
+  const [coupon, setCoupon] = useState(null);        // { code, expiresAt }
+  const [couponError, setCouponError] = useState(null);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [prizeName, setPrizeName] = useState(null);  // nombre del cupón/premio
 
   // Inicializa el contador de redirecciones (igual que en JuegoPizza)
   useEffect(() => {
@@ -134,7 +154,16 @@ export default function PerfectTimingGame() {
       const delta = Math.abs(timeMs - TARGET_MS);
       setDeltaMs(delta);
       const isWin = delta <= TOLERANCE_MS;
-      setResult(isWin ? "win" : "lose");
+
+      if (isWin) {
+        setResult("win");
+        setPrizeName(null);       // se rellenará si el backend devuelve nombre
+        setCoupon(null);
+        setCouponError(null);
+        setWinnerModalOpen(true); // 👉 abre modal de ganador
+      } else {
+        setResult("lose");
+      }
 
       // Consumimos intento y, si se acaban sin ganar, redirigimos
       setAttemptsLeft((prev) => {
@@ -153,6 +182,51 @@ export default function PerfectTimingGame() {
     }
   }
 
+  async function reclamarCupon() {
+    if (!contact) {
+      alert("Por favor, ingresa un número de contacto.");
+      return;
+    }
+    setIsClaiming(true);
+    setCouponError(null);
+
+    try {
+      const { data } = await axios.post(`${API_BASE}/reclamar`, {
+        contacto: contact,
+        gameId: 2, // importante para que el backend asocie al GAME_ID=2
+      });
+
+      console.log("[PerfectTime /reclamar] resp:", data);
+
+      if (data.couponIssued && data.coupon?.code) {
+        setCoupon({
+          code: data.coupon.code,
+          expiresAt: data.coupon.expiresAt,
+        });
+        setPrizeName(
+          data.coupon?.name ||
+            data.prizeName ||
+            data.couponName ||
+            prizeName
+        );
+      } else {
+        setCouponError(
+          data.couponError ||
+            "No se pudo emitir el cupón automáticamente. Si ya tienes el premio, contáctanos para ayudarte."
+        );
+      }
+    } catch (error) {
+      console.error("Error PerfectTime /reclamar:", error);
+      setCouponError("Error de red/servidor al reclamar el premio.");
+    } finally {
+      setIsClaiming(false);
+    }
+  }
+
+  function cerrarModalGanador() {
+    setWinnerModalOpen(false);
+  }
+
   const displayTime = formatTime(timeMs);
   const offBySeconds =
     deltaMs != null ? (deltaMs / 1000).toFixed(2) : null;
@@ -160,13 +234,13 @@ export default function PerfectTimingGame() {
   return (
     <div className="container ptg-root">
       {/* ======= TARJETA BLANCA: LOGO + TÍTULO (estilo JuegoPizza) ======= */}
-   <div className="card ptg-header-card">
-  <img
-    src={logo}
-    alt="MyCrushPizza"
-    className="logo logo--in-card"
-  />
-  </div>
+      <div className="card ptg-header-card">
+        <img
+          src={logo}
+          alt="MyCrushPizza"
+          className="logo logo--in-card"
+        />
+      </div>
 
       {/* ======= CUERPO DEL JUEGO ======= */}
       <div className="ptg-card">
@@ -199,7 +273,7 @@ export default function PerfectTimingGame() {
           </p>
 
           <div className="ptg-hint">
-           {result === null && (
+            {result === null && (
               <p>
                 <strong>Stop at 9.99 seconds to win.</strong>
                 <br />
@@ -228,6 +302,89 @@ export default function PerfectTimingGame() {
           </div>
         </main>
       </div>
+
+      {/* ======= MODAL GANADOR / CUPÓN (Perfect Time) ======= */}
+      {winnerModalOpen && (
+        <div
+          className="modal"
+          role="dialog"
+          aria-modal="true"
+          onClick={cerrarModalGanador}
+          style={{ zIndex: 200000 }}
+        >
+          <div
+            className="modal-contenido"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="modal-close"
+              aria-label="Cerrar"
+              onClick={cerrarModalGanador}
+              title="Cerrar"
+            >
+              ✕
+            </button>
+
+            {!coupon ? (
+              <>
+                <h2>
+                  🎉 ¡Ganaste un cupón
+                  {prizeName ? ` de ${prizeName}` : ""} 🎉
+                </h2>
+                <p>Ingresa tu número de contacto para reclamarlo:</p>
+                <input
+                  type="text"
+                  placeholder="Tu número"
+                  value={contact}
+                  onChange={(e) => setContact(e.target.value)}
+                />
+                <button
+                  className="boton-reclamar"
+                  onClick={reclamarCupon}
+                  disabled={isClaiming}
+                >
+                  {isClaiming ? "Procesando…" : "Reclamar cupón 🎊"}
+                </button>
+                {couponError && (
+                  <p style={{ color: "#e63946", marginTop: 12 }}>
+                    {couponError}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <h2>🎟️ ¡Cupón listo!</h2>
+                <p>
+                  Usa este código en el portal de ventas dentro del tiempo
+                  indicado.
+                </p>
+                <div className="coupon-code">{coupon.code}</div>
+                <p>
+                  Vence: {new Date(coupon.expiresAt).toLocaleString()}
+                </p>
+
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    className="boton-reclamar"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(coupon.code);
+                        setTimeout(
+                          () => goToSalesWithCoupon(coupon.code),
+                          80
+                        );
+                        alert("Código copiado ✅");
+                      } catch {}
+                    }}
+                  >
+                    Copiar código
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ======= FOOTER IGUAL QUE JuegoPizza ======= */}
       <footer className="footer">

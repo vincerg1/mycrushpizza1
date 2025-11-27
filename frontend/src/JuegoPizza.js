@@ -221,7 +221,29 @@ export default function JuegoPizza() {
         return left;
       });
 
-      if (data.esGanador) {
+            if (data.esGanador) {
+        console.log("[WIN] abrir modal; lockedUntil:", data.lockedUntil);
+
+        // Intentamos capturar el nombre del premio/cupón si viene del backend
+        const nameFromBackend =
+          data.prizeName ||
+          data.couponName ||
+          data.rewardName ||
+          null;
+
+        setPrizeName(nameFromBackend);
+
+        // Mensaje genérico de win (ya no pizza fija)
+        setMensaje("🎉 ¡Ganaste un cupón! 🎉");
+
+        if (data.lockedUntil) {
+          setLockedUntil(data.lockedUntil);
+          setUltimoNumeroGanado(data.numeroGanador);
+        }
+        setShowLockModal(false);
+        setCoupon(null);
+        setCouponError(null);
+        setModalAbierto(true);
         console.log("[WIN] abrir modal; lockedUntil:", data.lockedUntil);
         setMensaje("🎉 ¡Ganaste una pizza!");
         if (data.lockedUntil) {
@@ -403,7 +425,10 @@ export default function JuegoPizza() {
 
             {!coupon ? (
               <>
-                <h2>🎉 ¡Ganaste una pizza! 🎉</h2>
+                <h2>
+                  🎉 ¡Ganaste un cupón
+                  {prizeName ? ` de ${prizeName}` : ""} 🎉
+                </h2>
                 <p>Ingresa tu número de contacto para reclamarla:</p>
                 <input
                   type="text"
@@ -416,7 +441,7 @@ export default function JuegoPizza() {
                   onClick={reclamarPizza}
                   disabled={isClaiming}
                 >
-                  {isClaiming ? "Procesando…" : "Reclamar Pizza 🎊"}
+                  {isClaiming ? "Procesando…" : "Reclamar Cupon 🎊"}
                 </button>
                 {couponError && (
                   <p style={{ color: "#e63946", marginTop: 12 }}>{couponError}</p>
