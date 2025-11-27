@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 import axios from "axios";
+import Confetti from "react-confetti";
 
 const TARGET_MS = 9990;   // 9,99 s
 const TOLERANCE_MS = 40;  // margen de acierto (40 ms ≈ 0,04 s)
@@ -98,6 +99,9 @@ export default function PerfectTimingGame() {
   const [isClaiming, setIsClaiming] = useState(false);
   const [prizeName, setPrizeName] = useState(null);  // nombre del cupón/premio
 
+  /* --- Bloqueo local del juego tras ganar --- */
+  const [locked, setLocked] = useState(false);
+
   // Inicializa el contador de redirecciones (igual que en JuegoPizza)
   useEffect(() => {
     try {
@@ -133,8 +137,8 @@ export default function PerfectTimingGame() {
   }, [running, timeMs]);
 
   function handleToggle() {
-    // Si ya no quedan intentos, no hacemos nada
-    if (!running && attemptsLeft === 0) {
+    // Si ya está bloqueado o no quedan intentos, no hacemos nada
+    if (locked || (!running && attemptsLeft === 0)) {
       return;
     }
 
@@ -153,7 +157,9 @@ export default function PerfectTimingGame() {
       }
       const delta = Math.abs(timeMs - TARGET_MS);
       setDeltaMs(delta);
-      const isWin = true;
+
+      // PARA TESTS: win forzado
+      const isWin = true; // <-- cuando acabes las pruebas, pon: delta <= TOLERANCE_MS;
 
       if (isWin) {
         setResult("win");
@@ -161,6 +167,7 @@ export default function PerfectTimingGame() {
         setCoupon(null);
         setCouponError(null);
         setWinnerModalOpen(true); // 👉 abre modal de ganador
+        setLocked(true);          // 👉 bloquea el juego tras ganar
       } else {
         setResult("lose");
       }
@@ -233,6 +240,21 @@ export default function PerfectTimingGame() {
 
   return (
     <div className="container ptg-root">
+      {/* 🎊 Confetti cuando hay win (aunque cierres el modal) */}
+      {result === "win" && (
+        <Confetti
+          numberOfPieces={280}
+          style={{ pointerEvents: "none", zIndex: 5 }}
+        />
+      )}
+
+      {/* Mensaje de bloqueo simple */}
+      {locked && (
+        <div className="ptg-lock-banner">
+          Ya hubo un ganador en este dispositivo. Vuelve más tarde 🎉
+        </div>
+      )}
+
       {/* ======= TARJETA BLANCA: LOGO + TÍTULO (estilo JuegoPizza) ======= */}
       <div className="card ptg-header-card">
         <img
@@ -263,7 +285,7 @@ export default function PerfectTimingGame() {
               (running ? " ptg-button--stop" : " ptg-button--start")
             }
             onClick={handleToggle}
-            disabled={!running && attemptsLeft === 0}
+            disabled={locked || (!running && attemptsLeft === 0)}
           >
             {running ? "STOP" : "START"}
           </button>
@@ -327,11 +349,20 @@ export default function PerfectTimingGame() {
 
             {!coupon ? (
               <>
-                <h2>
+                <h2
+                  style={{
+                    fontSize: "1.4rem",
+                    textAlign: "center",
+                    lineHeight: 1.3,
+                    marginBottom: "0.75rem",
+                  }}
+                >
                   🎉 ¡Ganaste un cupón
                   {prizeName ? ` de ${prizeName}` : ""} 🎉
                 </h2>
-                <p>Ingresa tu número de contacto para reclamarlo:</p>
+                <p style={{ textAlign: "center", marginBottom: "0.75rem" }}>
+                  Ingresa tu número de contacto para reclamarlo:
+                </p>
                 <input
                   type="text"
                   placeholder="Tu número"
@@ -353,15 +384,22 @@ export default function PerfectTimingGame() {
               </>
             ) : (
               <>
-                <h2>🎟️ ¡Cupón listo!</h2>
-                <p>
+                <h2
+                  style={{
+                    fontSize: "1.4rem",
+                    textAlign: "center",
+                    lineHeight: 1.3,
+                    marginBottom: "0.75rem",
+                  }}
+                >
+                  🎟️ ¡Cupón listo!
+                </h2>
+                <p style={{ textAlign: "center" }}>
                   Usa este código en el portal de ventas dentro del tiempo
                   indicado.
                 </p>
                 <div className="coupon-code">{coupon.code}</div>
-                <p>
-                  Vence: {new Date(coupon.expiresAt).toLocaleString()}
-                </p>
+                <p>Vence: {new Date(coupon.expiresAt).toLocaleString()}</p>
 
                 <div style={{ marginTop: 12 }}>
                   <button
