@@ -12,8 +12,6 @@
   gap: 16px;
 }
 
-
-
 .ptg-card {
   position: relative;
   width: 100%;
@@ -32,14 +30,13 @@
     0 0 20px rgba(249, 38, 114, 0.6);
 }
 
-
 /* capa con logo grande y opaco */
 .ptg-card-bg-logo {
-  background-image: url("./logo/HOYnuevoLogoMyCrushPizza.jpeg"); /* o "logo/..." */
+  background-image: url("./logo/HOYnuevoLogoMyCrushPizza.jpeg");
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
-  opacity: 0.08; /* por ejemplo */
+  opacity: 0.08;
 }
 
 /* contenido por encima */
@@ -83,18 +80,17 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;              /* antes 14px */
-  margin-top: 4px;        /* antes 8px */
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .ptg-display-time {
-  font-size: 2.1rem;      /* antes 2.4rem */
+  font-size: 2.1rem;
 }
 
 .ptg-button {
   margin-top: 2px;
 }
-
 
 .ptg-display {
   display: inline-flex;
@@ -223,19 +219,36 @@
     min-width: 0;
     width: 100%;
   }
+
   /* Tarjeta blanca de arriba (logo + copy) */
-.ptg-header-card {
-  width: 100%;
-  max-width: 420px;
-  text-align: center;
-  padding: 18px 16px 14px;
+  .ptg-header-card {
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+    padding: 18px 16px 14px;
+  }
+
+  /* Subtítulo bajo el logo dentro de la card */
+  .ptg-subtitle--under-logo {
+    margin-top: 10px;
+    font-size: 0.86rem;
+    color: #4b5563; /* gris oscuro sobre fondo blanco */
+  }
 }
 
-/* Subtítulo bajo el logo dentro de la card */
-.ptg-subtitle--under-logo {
-  margin-top: 10px;
-  font-size: 0.86rem;
-  color: #4b5563; /* gris oscuro sobre fondo blanco */
+/* ====== FIX: que el modal de bloqueo se vea bien en PTG ====== */
+.ptg-root .lock-modal {
+  color: #111;            /* texto por defecto negro dentro del modal */
 }
 
+.ptg-root .lock-modal .lock-subtitle,
+.ptg-root .lock-modal .lock-caption,
+.ptg-root .lock-modal .lock-eta {
+  color: #333;
+}
+
+.ptg-root .lock-modal .countdown {
+  font-size: 2.6rem;
+  font-weight: 800;
+  color: #111;
 }
