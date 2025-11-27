@@ -1,5 +1,6 @@
 // PerfectTimingGame.js
 import React, { useState, useRef, useEffect } from "react";
+import "./App.css"; // para reutilizar estilos de modales de JuegoPizza
 import "./PerfectTimingGame.css";
 import logo from "./logo/HOYnuevoLogoMyCrushPizza.jpeg";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -23,7 +24,8 @@ const REDIRECT_SEQ_KEY  = "mcp_redirect_seq";
 const REDIRECT_LOCK_KEY = "mcp_redirect_lock";
 
 /* Bloqueo local del juego (por dispositivo) */
-const PTG_LOCK_KEY = "mcp_ptg_locked"; // "1" si ya ganó este dispositivo
+const PTG_LOCK_UNTIL_KEY = "mcp_ptg_locked_until"; // ISO de cuándo termina el bloqueo
+const PTG_LOCK_MINUTES = 10; // mismo espíritu que LOCK_MINUTES del back
 
 /** Lock ligero con localStorage para serializar escrituras entre pestañas */
 async function withLocalStorageLock(fn, { timeoutMs = 700 } = {}) {
@@ -84,6 +86,14 @@ function formatTime(ms) {
   return seconds.toFixed(2);
 }
 
+function formatCountdown(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const hh = String(Math.floor(s / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
 export default function PerfectTimingGame() {
   const [timeMs, setTimeMs] = useState(0);
   const [running, setRunning] = useState(false);
@@ -102,10 +112,12 @@ export default function PerfectTimingGame() {
   const [isClaiming, setIsClaiming] = useState(false);
   const [prizeName, setPrizeName] = useState(null);  // nombre del cupón/premio
 
-  /* --- Bloqueo local del juego tras ganar --- */
-  const [locked, setLocked] = useState(false);
+  /* --- Bloqueo con countdown (como JuegoPizza, pero local) --- */
+  const [lockedUntil, setLockedUntil] = useState(null); // ISO string
+  const [remainingMs, setRemainingMs] = useState(0);
+  const [showLockModal, setShowLockModal] = useState(false);
 
-  // Inicializa contador de redirecciones + bloqueo
+  // Inicializa contador de redirecciones + bloqueo guardado
   useEffect(() => {
     try {
       const raw = localStorage.getItem(REDIRECT_SEQ_KEY);
@@ -114,13 +126,41 @@ export default function PerfectTimingGame() {
       }
       localStorage.removeItem("mcp_redirect_toggle");
 
-      const lockedFlag = localStorage.getItem(PTG_LOCK_KEY);
-      if (lockedFlag === "1") {
-        setLocked(true);
-        setResult("win");
+      const storedUntil = localStorage.getItem(PTG_LOCK_UNTIL_KEY);
+      if (storedUntil) {
+        const ts = new Date(storedUntil).getTime();
+        if (ts > Date.now()) {
+          setLockedUntil(storedUntil);
+          setShowLockModal(true);
+        } else {
+          localStorage.removeItem(PTG_LOCK_UNTIL_KEY);
+        }
       }
     } catch {}
   }, []);
+
+  // Ticker del countdown
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const untilTs = new Date(lockedUntil).getTime();
+
+    const tick = () => {
+      const left = untilTs - Date.now();
+      setRemainingMs(left);
+    };
+
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lockedUntil]);
+
+  // Cuando termina el bloqueo, se limpia
+  useEffect(() => {
+    if (!lockedUntil || remainingMs > 0) return;
+    setLockedUntil(null);
+    setShowLockModal(false);
+    localStorage.removeItem(PTG_LOCK_UNTIL_KEY);
+  }, [remainingMs, lockedUntil]);
 
   // Loop del cronómetro con requestAnimationFrame
   useEffect(() => {
@@ -145,8 +185,10 @@ export default function PerfectTimingGame() {
   }, [running, timeMs]);
 
   function handleToggle() {
-    // 🔐 Si está bloqueado o no quedan intentos, no hace nada
-    if (locked || (!running && attemptsLeft === 0)) return;
+    // Si está bloqueado o no quedan intentos, no hace nada
+    if ((lockedUntil && remainingMs > 0) || (!running && attemptsLeft === 0)) {
+      return;
+    }
 
     if (!running) {
       // START
@@ -164,9 +206,9 @@ export default function PerfectTimingGame() {
       const delta = Math.abs(timeMs - TARGET_MS);
       setDeltaMs(delta);
 
-      // FORZADO PARA TESTEAR MODAL + BLOQUEO:
+      // AHORA MISMO: win forzado para testear modal/cupo/bloqueo
       const isWin = true;
-      // Luego lo dejas en:
+      // Cuando termines las pruebas:
       // const isWin = delta <= TOLERANCE_MS;
 
       if (isWin) {
@@ -174,11 +216,7 @@ export default function PerfectTimingGame() {
         setPrizeName(null);
         setCoupon(null);
         setCouponError(null);
-        setWinnerModalOpen(true);
-        setLocked(true);
-        try {
-          localStorage.setItem(PTG_LOCK_KEY, "1");
-        } catch {}
+        setWinnerModalOpen(true);   // 👉 abre modal de cupón
       } else {
         setResult("lose");
       }
@@ -242,11 +280,20 @@ export default function PerfectTimingGame() {
 
   const cerrarModalGanador = () => {
     setWinnerModalOpen(false);
+    // 🔒 AQUÍ se activa el bloqueo y el modal "Juego en pausa"
+    const until = new Date(Date.now() + PTG_LOCK_MINUTES * 60 * 1000);
+    const iso = until.toISOString();
+    setLockedUntil(iso);
+    setShowLockModal(true);
+    localStorage.setItem(PTG_LOCK_UNTIL_KEY, iso);
   };
 
   const displayTime = formatTime(timeMs);
   const offBySeconds =
     deltaMs != null ? (deltaMs / 1000).toFixed(2) : null;
+
+  const botonDeshabilitado =
+    winnerModalOpen || (lockedUntil && remainingMs > 0) || (!running && attemptsLeft === 0);
 
   return (
     <div className="container ptg-root">
@@ -258,10 +305,18 @@ export default function PerfectTimingGame() {
         />
       )}
 
-      {/* Banner simple si ya está bloqueado */}
-      {locked && (
-        <div className="ptg-lock-banner">
-          Ya hubo un ganador en este dispositivo. Vuelve más tarde 🎉
+      {/* --------- MODAL BLOQUEO (countdown) --------- */}
+      {showLockModal && lockedUntil && remainingMs > 0 && !winnerModalOpen && (
+        <div className="overlay" style={{ zIndex: 150000 }}>
+          <div className="modal-legal lock-modal">
+            <h2 className="lock-title">Juego en pausa ⏳</h2>
+            <p className="lock-subtitle">Hace nada hubo un ganador.</p>
+            <p className="lock-caption">Se reanudará en:</p>
+            <div className="countdown">{formatCountdown(remainingMs)}</div>
+            <p className="lock-eta">
+              Hora estimada: {new Date(lockedUntil).toLocaleTimeString()}
+            </p>
+          </div>
         </div>
       )}
 
@@ -295,7 +350,7 @@ export default function PerfectTimingGame() {
               (running ? " ptg-button--stop" : " ptg-button--start")
             }
             onClick={handleToggle}
-            disabled={locked || (!running && attemptsLeft === 0)}
+            disabled={botonDeshabilitado}
           >
             {running ? "STOP" : "START"}
           </button>
@@ -335,7 +390,7 @@ export default function PerfectTimingGame() {
         </main>
       </div>
 
-      {/* --------- MODAL GANADOR / CUPÓN (copiado de JuegoPizza) --------- */}
+      {/* --------- MODAL GANADOR / CUPÓN (replica de JuegoPizza) --------- */}
       {winnerModalOpen && (
         <div
           className="modal"
