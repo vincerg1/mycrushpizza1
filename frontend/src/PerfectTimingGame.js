@@ -1,6 +1,6 @@
 // PerfectTimingGame.js
 import React, { useState, useRef, useEffect } from "react";
-import "./App.css"; // para reutilizar estilos de modales de JuegoPizza
+import "./App.css"; // reutiliza estilos de modales de JuegoPizza
 import "./PerfectTimingGame.css";
 import logo from "./logo/HOYnuevoLogoMyCrushPizza.jpeg";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -25,7 +25,7 @@ const REDIRECT_LOCK_KEY = "mcp_redirect_lock";
 
 /* Bloqueo local del juego (por dispositivo) */
 const PTG_LOCK_UNTIL_KEY = "mcp_ptg_locked_until"; // ISO de cuándo termina el bloqueo
-const PTG_LOCK_MINUTES = 10; // mismo espíritu que LOCK_MINUTES del back
+const PTG_LOCK_MINUTES = 10;
 
 /** Lock ligero con localStorage para serializar escrituras entre pestañas */
 async function withLocalStorageLock(fn, { timeoutMs = 700 } = {}) {
@@ -104,20 +104,20 @@ export default function PerfectTimingGame() {
   const rafIdRef = useRef(null);
   const startTimeRef = useRef(null);
 
-  /* --- Estados para premio/cupón (como JuegoPizza) --- */
-  const [winnerModalOpen, setWinnerModalOpen] = useState(false);
+  /* --- Estados para premio/cupón (igual que JuegoPizza) --- */
+  const [modalAbierto, setModalAbierto] = useState(false);
   const [contacto, setContacto] = useState("");
   const [coupon, setCoupon] = useState(null);        // { code, expiresAt }
   const [couponError, setCouponError] = useState(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [prizeName, setPrizeName] = useState(null);  // nombre del cupón/premio
 
-  /* --- Bloqueo con countdown (como JuegoPizza, pero local) --- */
+  /* ---------------- Bloqueo / countdown (clonado de JuegoPizza) ---------------- */
   const [lockedUntil, setLockedUntil] = useState(null); // ISO string
   const [remainingMs, setRemainingMs] = useState(0);
   const [showLockModal, setShowLockModal] = useState(false);
 
-  // Inicializa contador de redirecciones + bloqueo guardado
+  /* --------- Inicialización: redirecciones + bloqueo guardado --------- */
   useEffect(() => {
     try {
       const raw = localStorage.getItem(REDIRECT_SEQ_KEY);
@@ -139,22 +139,20 @@ export default function PerfectTimingGame() {
     } catch {}
   }, []);
 
-  // Ticker del countdown
+  /* --------- Ticker del countdown (igual patrón que JuegoPizza) --------- */
   useEffect(() => {
     if (!lockedUntil) return;
     const untilTs = new Date(lockedUntil).getTime();
-
     const tick = () => {
       const left = untilTs - Date.now();
       setRemainingMs(left);
     };
-
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [lockedUntil]);
 
-  // Cuando termina el bloqueo, se limpia
+  /* --------- Revalidar estado cuando termina el bloqueo --------- */
   useEffect(() => {
     if (!lockedUntil || remainingMs > 0) return;
     setLockedUntil(null);
@@ -162,7 +160,7 @@ export default function PerfectTimingGame() {
     localStorage.removeItem(PTG_LOCK_UNTIL_KEY);
   }, [remainingMs, lockedUntil]);
 
-  // Loop del cronómetro con requestAnimationFrame
+  /* --------- Loop del cronómetro --------- */
   useEffect(() => {
     if (!running) return;
 
@@ -184,8 +182,8 @@ export default function PerfectTimingGame() {
     };
   }, [running, timeMs]);
 
+  /* ------------ JUGAR (START/STOP) --------------- */
   function handleToggle() {
-    // Si está bloqueado o no quedan intentos, no hace nada
     if ((lockedUntil && remainingMs > 0) || (!running && attemptsLeft === 0)) {
       return;
     }
@@ -206,17 +204,23 @@ export default function PerfectTimingGame() {
       const delta = Math.abs(timeMs - TARGET_MS);
       setDeltaMs(delta);
 
-      // AHORA MISMO: win forzado para testear modal/cupo/bloqueo
+      // FORZADO PARA TESTEAR: SIEMPRE WIN
       const isWin = true;
-      // Cuando termines las pruebas:
-      // const isWin = delta <= TOLERANCE_MS;
+      // Luego: const isWin = delta <= TOLERANCE_MS;
 
       if (isWin) {
         setResult("win");
         setPrizeName(null);
         setCoupon(null);
         setCouponError(null);
-        setWinnerModalOpen(true);   // 👉 abre modal de cupón
+        setModalAbierto(true); // abre modal de cupón
+
+        // igual que JuegoPizza: dejamos lockedUntil preparado
+        const until = new Date(Date.now() + PTG_LOCK_MINUTES * 60 * 1000);
+        const iso = until.toISOString();
+        setLockedUntil(iso);
+        localStorage.setItem(PTG_LOCK_UNTIL_KEY, iso);
+        setShowLockModal(false); // todavía NO mostramos el modal de pausa
       } else {
         setResult("lose");
       }
@@ -237,11 +241,9 @@ export default function PerfectTimingGame() {
     }
   }
 
-  async function reclamarCupon() {
-    if (!contacto) {
-      alert("Por favor, ingresa un número de contacto.");
-      return;
-    }
+  /* ------------ RECLAMAR CUPÓN --------------- */
+  const reclamarCupon = async () => {
+    if (!contacto) return alert("Por favor, ingresa un número de contacto.");
     setIsClaiming(true);
     setCouponError(null);
 
@@ -250,7 +252,6 @@ export default function PerfectTimingGame() {
         contacto,
         gameId: 2,
       });
-
       console.log("[PerfectTime /reclamar] resp:", data);
 
       if (data.couponIssued && data.coupon?.code) {
@@ -276,16 +277,14 @@ export default function PerfectTimingGame() {
     } finally {
       setIsClaiming(false);
     }
-  }
+  };
 
+  /* -------- Cerrar modal ganador → mostrar modal de bloqueo -------- */
   const cerrarModalGanador = () => {
-    setWinnerModalOpen(false);
-    // 🔒 AQUÍ se activa el bloqueo y el modal "Juego en pausa"
-    const until = new Date(Date.now() + PTG_LOCK_MINUTES * 60 * 1000);
-    const iso = until.toISOString();
-    setLockedUntil(iso);
-    setShowLockModal(true);
-    localStorage.setItem(PTG_LOCK_UNTIL_KEY, iso);
+    setModalAbierto(false);
+    if (lockedUntil && remainingMs > 0) {
+      setShowLockModal(true);
+    }
   };
 
   const displayTime = formatTime(timeMs);
@@ -293,11 +292,11 @@ export default function PerfectTimingGame() {
     deltaMs != null ? (deltaMs / 1000).toFixed(2) : null;
 
   const botonDeshabilitado =
-    winnerModalOpen || (lockedUntil && remainingMs > 0) || (!running && attemptsLeft === 0);
+    (lockedUntil && remainingMs > 0) || (!running && attemptsLeft === 0);
 
   return (
     <div className="container ptg-root">
-      {/* Confetti estilo JuegoPizza */}
+      {/* Confetti igual que en JuegoPizza */}
       {result === "win" && (
         <Confetti
           numberOfPieces={300}
@@ -305,8 +304,8 @@ export default function PerfectTimingGame() {
         />
       )}
 
-      {/* --------- MODAL BLOQUEO (countdown) --------- */}
-      {showLockModal && lockedUntil && remainingMs > 0 && !winnerModalOpen && (
+      {/* --------- MODAL BLOQUEO (countdown) CLONADO --------- */}
+      {showLockModal && lockedUntil && remainingMs > 0 && !modalAbierto && (
         <div className="overlay" style={{ zIndex: 150000 }}>
           <div className="modal-legal lock-modal">
             <h2 className="lock-title">Juego en pausa ⏳</h2>
@@ -390,8 +389,8 @@ export default function PerfectTimingGame() {
         </main>
       </div>
 
-      {/* --------- MODAL GANADOR / CUPÓN (replica de JuegoPizza) --------- */}
-      {winnerModalOpen && (
+      {/* --------- MODAL GANADOR / CUPÓN (clon de JuegoPizza) --------- */}
+      {modalAbierto && (
         <div
           className="modal"
           role="dialog"
@@ -468,7 +467,7 @@ export default function PerfectTimingGame() {
         </div>
       )}
 
-      {/* ======= FOOTER IGUAL QUE JuegoPizza ======= */}
+      {/* ======= FOOTER ======= */}
       <footer className="footer">
         <div className="footer__inner">
           <p className="info-text">¡Más información aquí!</p>
