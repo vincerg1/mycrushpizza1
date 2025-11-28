@@ -821,8 +821,6 @@ function startServer () {
     console.log(`🧪 Modo prueba FORCE_WIN=${FORCE_WIN ? 'ON' : 'OFF'} | FTW_EVERY=${FTW_EVERY}`);
   }
 
-
-
   app.post('/perfect/attempt', async (req, res) => {
     const ip = getClientIp(req);
     const { timeMs } = req.body || {};
