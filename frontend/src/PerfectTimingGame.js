@@ -9,18 +9,19 @@ import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 import axios from "axios";
 import Confetti from "react-confetti";
 
-const TARGET_MS = 9990;   // 9,99 s
-const TOLERANCE_MS = 40;  // margen de acierto (40 ms ≈ 0,04 s)
+const TARGET_MS = 9990; // 9,99 s
+const TOLERANCE_MS = 40; // margen de acierto (40 ms ≈ 0,04 s)
 const MAX_ATTEMPTS = 10;
 
 /* ========= Backend del juego ========= */
 const API_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
 /* ========= Redirecciones (mismo esquema que JuegoPizza) ========= */
-const TIKTOK_URL    = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
+const TIKTOK_URL =
+  "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
 const INSTAGRAM_URL = "https://www.mycrushpizza.com/venta";
 
-const REDIRECT_SEQ_KEY  = "mcp_redirect_seq";
+const REDIRECT_SEQ_KEY = "mcp_redirect_seq";
 const REDIRECT_LOCK_KEY = "mcp_redirect_lock";
 
 /* Bloqueo local del juego (por dispositivo) */
@@ -107,10 +108,10 @@ export default function PerfectTimingGame() {
   /* --- Estados para premio/cupón (igual que JuegoPizza) --- */
   const [modalAbierto, setModalAbierto] = useState(false);
   const [contacto, setContacto] = useState("");
-  const [coupon, setCoupon] = useState(null);        // { code, expiresAt }
+  const [coupon, setCoupon] = useState(null); // { code, expiresAt }
   const [couponError, setCouponError] = useState(null);
   const [isClaiming, setIsClaiming] = useState(false);
-  const [prizeName, setPrizeName] = useState(null);  // nombre del cupón/premio
+  const [prizeName, setPrizeName] = useState(null); // nombre del cupón/premio
 
   /* ---------------- Bloqueo / countdown (clonado de JuegoPizza) ---------------- */
   const [lockedUntil, setLockedUntil] = useState(null); // ISO string
@@ -140,25 +141,24 @@ export default function PerfectTimingGame() {
   }, []);
 
   /* ===== CARGA ESTADO DESDE SERVIDOR (como JuegoPizza) ===== */
-useEffect(() => {
-  if (!API_BASE) return;
-  axios
-    .get(`${API_BASE}/perfect/estado`)
-    .then((res) => {
-      const { lockedUntil: srvLockedUntil } = res.data || {};
-      console.log("[PTG /perfect/estado]", res.data);
-      if (srvLockedUntil) {
-        setLockedUntil(srvLockedUntil);
-        // opcional: guardar también en localStorage
-        localStorage.setItem(PTG_LOCK_UNTIL_KEY, srvLockedUntil);
-        setShowLockModal(true);
-      }
-    })
-    .catch((err) => {
-      console.error("PTG /perfect/estado error:", err);
-    });
-}, []);
-
+  useEffect(() => {
+    if (!API_BASE) return;
+    axios
+      .get(`${API_BASE}/perfect/estado`)
+      .then((res) => {
+        const { lockedUntil: srvLockedUntil } = res.data || {};
+        console.log("[PTG /perfect/estado]", res.data);
+        if (srvLockedUntil) {
+          setLockedUntil(srvLockedUntil);
+          // opcional: guardar también en localStorage
+          localStorage.setItem(PTG_LOCK_UNTIL_KEY, srvLockedUntil);
+          setShowLockModal(true);
+        }
+      })
+      .catch((err) => {
+        console.error("PTG /perfect/estado error:", err);
+      });
+  }, []);
 
   /* --------- Ticker del countdown (igual patrón que JuegoPizza) --------- */
   useEffect(() => {
@@ -204,116 +204,130 @@ useEffect(() => {
   }, [running, timeMs]);
 
   /* ------------ JUGAR (START/STOP) --------------- */
-async function handleToggle() {
-  if ((lockedUntil && remainingMs > 0) || (!running && attemptsLeft === 0)) {
-    return;
-  }
+  async function handleToggle() {
+    // Si está bloqueado o sin intentos → no hace nada
+    if ((lockedUntil && remainingMs > 0) || (!running && attemptsLeft === 0)) {
+      return;
+    }
 
-  if (!running) {
     // START
-    setResult(null);
-    setDeltaMs(null);
-    startTimeRef.current = null;
-    setTimeMs(0);
-    setRunning(true);
-    return;
+    if (!running) {
+      setResult(null);
+      setDeltaMs(null);
+      startTimeRef.current = null;
+      setTimeMs(0);
+      setRunning(true);
+      return;
+    }
+
+    // STOP
+    setRunning(false);
+    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+
+    const finalTime = timeMs;
+
+    let backendWin = null;
+    let backendWinId = null;
+    let backendDelta = null;
+
+    try {
+      const { data } = await axios.post(`${API_BASE}/perfect/attempt`, {
+        timeMs: finalTime,
+      });
+
+      backendWin = data.isWin;
+      backendWinId = data.winId;
+      backendDelta = data.deltaMs;
+
+      console.log("🎯 [/perfect/attempt] →", data);
+    } catch (err) {
+      console.error("ERROR /perfect/attempt →", err);
+    }
+
+    // Delta recibido o calculado local
+    const localDelta = Math.abs(finalTime - TARGET_MS);
+    const effectiveDelta = backendDelta ?? localDelta;
+    setDeltaMs(effectiveDelta);
+
+    // Modo real: si backend dice win/lose, usamos eso
+    // si backend no responde bien, fallback al rango local
+    const backendHasOpinion = typeof backendWin === "boolean";
+    const isWin = backendHasOpinion
+      ? backendWin
+      : effectiveDelta <= TOLERANCE_MS;
+
+    if (isWin) {
+      // Mostrar modal
+      setResult("win");
+      setPrizeName(null);
+      setCoupon(null);
+      setCouponError(null);
+      setModalAbierto(true);
+
+      // Guardar winId real
+      window.__PTG_WIN_ID__ = backendWinId;
+      console.log("🏆 GANADOR — winId =", backendWinId);
+
+      // Bloqueo local (preventivo)
+      const until = new Date(Date.now() + PTG_LOCK_MINUTES * 60 * 1000);
+      const iso = until.toISOString();
+      setLockedUntil(iso);
+      localStorage.setItem(PTG_LOCK_UNTIL_KEY, iso);
+      setShowLockModal(false);
+    } else {
+      setResult("lose");
+    }
+
+    // Restar intento
+    setAttemptsLeft((prev) => Math.max(0, prev - 1));
   }
-
-  // STOP
-  setRunning(false);
-  if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
-
-  const finalTime = timeMs;
-
-  let backendWin = false;
-  let backendWinId = null;
-  let backendDelta = null;
-
-  try {
-    const { data } = await axios.post(`${API_BASE}/perfect/attempt`, {
-      timeMs: finalTime
-    });
-
-    backendWin = data.isWin;
-    backendWinId = data.winId;
-    backendDelta = data.deltaMs;
-
-    console.log("🎯 [/perfect/attempt] →", data);
-  } catch (err) {
-    console.error("ERROR /perfect/attempt →", err);
-  }
-
-  // Guardar delta real o fallback
-  setDeltaMs(backendDelta ?? Math.abs(finalTime - TARGET_MS));
-
-  // === 🔥 MODO TEST: GANADOR SIEMPRE ===
-  const isWin = true;
-
-  if (isWin) {
-    setResult("win");
-    setPrizeName(null);
-    setCoupon(null);
-    setCouponError(null);
-    setModalAbierto(true);
-
-    // Guardar winId real para reclamar
-    window.__PTG_WIN_ID__ = backendWinId;
-    console.log("🏆 GANADOR — winId =", backendWinId);
-
-    // Preparar bloqueo local
-    const until = new Date(Date.now() + PTG_LOCK_MINUTES * 60 * 1000);
-    const iso = until.toISOString();
-    setLockedUntil(iso);
-    localStorage.setItem(PTG_LOCK_UNTIL_KEY, iso);
-    setShowLockModal(false);
-  } else {
-    setResult("lose");
-  }
-
-  // Intentos ↓
-  setAttemptsLeft((prev) => Math.max(0, prev - 1));
-}
-
-
 
   /* ------------ RECLAMAR CUPÓN --------------- */
-const reclamarCupon = async () => {
-  if (!contacto) return alert("Por favor, ingresa tu número de contacto.");
+  const reclamarCupon = async () => {
+    if (!contacto) return alert("Por favor, ingresa un número de contacto.");
 
-  const winId = window.__PTG_WIN_ID__;
-  if (!winId) {
-    setCouponError("No se puede reclamar: winId no existe.");
-    return;
-  }
-
-  setIsClaiming(true);
-  setCouponError(null);
-
-  try {
-    const { data } = await axios.post(`${API_BASE}/perfect/claim`, {
-      winId,
-      contacto
-    });
-
-    console.log("[/perfect/claim] →", data);
-
-    if (data.couponIssued && data.coupon?.code) {
-      setCoupon({
-        code: data.coupon.code,
-        expiresAt: data.coupon.expiresAt
-      });
-      setPrizeName(data.coupon?.name || prizeName);
-    } else {
-      setCouponError(data.couponError || "No se pudo emitir el cupón.");
+    const winId = window.__PTG_WIN_ID__;
+    if (!winId) {
+      setCouponError("No se puede reclamar: winId no existe.");
+      return;
     }
-  } catch (err) {
-    console.error("Error en /perfect/claim:", err);
-    setCouponError("Error de servidor al reclamar el premio.");
-  }
 
-  setIsClaiming(false);
-};
+    setIsClaiming(true);
+    setCouponError(null);
 
+    try {
+      const { data } = await axios.post(`${API_BASE}/perfect/claim`, {
+        winId,
+        contacto,
+      });
+
+      console.log("[PerfectTime /perfect/claim] resp:", data);
+
+      if (data.couponIssued && data.coupon?.code) {
+        setCoupon({
+          code: data.coupon.code,
+          expiresAt: data.coupon.expiresAt,
+        });
+
+        setPrizeName(
+          data.coupon?.name ||
+            data.prizeName ||
+            data.couponName ||
+            prizeName
+        );
+      } else {
+        setCouponError(
+          data.couponError ||
+            "No se pudo emitir el cupón automáticamente. Si ya tienes el premio, contáctanos para ayudarte."
+        );
+      }
+    } catch (error) {
+      console.error("Error PerfectTime /perfect/claim:", error);
+      setCouponError("Error de red/servidor al reclamar el premio.");
+    } finally {
+      setIsClaiming(false);
+    }
+  };
 
   /* -------- Cerrar modal ganador → mostrar modal de bloqueo -------- */
   const cerrarModalGanador = () => {
@@ -390,9 +404,7 @@ const reclamarCupon = async () => {
             {running ? "STOP" : "START"}
           </button>
 
-          <p className="ptg-attempts">
-            Attempts left: {attemptsLeft}
-          </p>
+          <p className="ptg-attempts">Attempts left: {attemptsLeft}</p>
 
           <div className="ptg-hint">
             {result === null && (
@@ -434,7 +446,10 @@ const reclamarCupon = async () => {
           onClick={cerrarModalGanador}
           style={{ zIndex: 200000 }}
         >
-          <div className="modal-contenido" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-contenido"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               className="modal-close"
               aria-label="Cerrar"
