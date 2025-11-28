@@ -938,7 +938,6 @@ function startServer () {
     });
   });
 
-
   /* ------------------- ARRANQUE ------------------- */
   app.listen(PORT, () =>
     console.log(`🚀 Servidor ${NODE_ENV} corriendo en http://localhost:${PORT}`)
