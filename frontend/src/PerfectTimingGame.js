@@ -204,101 +204,116 @@ useEffect(() => {
   }, [running, timeMs]);
 
   /* ------------ JUGAR (START/STOP) --------------- */
-  function handleToggle() {
-    if ((lockedUntil && remainingMs > 0) || (!running && attemptsLeft === 0)) {
-      return;
-    }
-
-    if (!running) {
-      // START
-      setResult(null);
-      setDeltaMs(null);
-      startTimeRef.current = null;
-      setTimeMs(0);
-      setRunning(true);
-    } else {
-      // STOP
-      setRunning(false);
-      if (rafIdRef.current) {
-        cancelAnimationFrame(rafIdRef.current);
-      }
-      const delta = Math.abs(timeMs - TARGET_MS);
-      setDeltaMs(delta);
-
-      // FORZADO PARA TESTEAR: SIEMPRE WIN
-      const isWin = true;
-      // Luego: const isWin = delta <= TOLERANCE_MS;
-
-      if (isWin) {
-        setResult("win");
-        setPrizeName(null);
-        setCoupon(null);
-        setCouponError(null);
-        setModalAbierto(true); // abre modal de cupón
-
-        // dejamos lockedUntil preparado (mismo patrón que JuegoPizza)
-        const until = new Date(Date.now() + PTG_LOCK_MINUTES * 60 * 1000);
-        const iso = until.toISOString();
-        setLockedUntil(iso);
-        localStorage.setItem(PTG_LOCK_UNTIL_KEY, iso);
-        setShowLockModal(false); // todavía NO mostramos el modal de pausa
-      } else {
-        setResult("lose");
-      }
-
-      // Intentos + redirección si pierdes todos
-      setAttemptsLeft((prev) => {
-        if (prev <= 0) return 0;
-        const next = prev - 1;
-
-        if (next === 0 && !isWin) {
-          (async () => {
-            const url = await getNextRedirectUrl();
-            setTimeout(() => window.location.assign(url), 2000);
-          })();
-        }
-        return next;
-      });
-    }
+async function handleToggle() {
+  if ((lockedUntil && remainingMs > 0) || (!running && attemptsLeft === 0)) {
+    return;
   }
 
-  /* ------------ RECLAMAR CUPÓN --------------- */
-  const reclamarCupon = async () => {
-    if (!contacto) return alert("Por favor, ingresa un número de contacto.");
-    setIsClaiming(true);
+  if (!running) {
+    // START
+    setResult(null);
+    setDeltaMs(null);
+    startTimeRef.current = null;
+    setTimeMs(0);
+    setRunning(true);
+    return;
+  }
+
+  // STOP
+  setRunning(false);
+  if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+
+  const finalTime = timeMs;
+
+  let backendWin = false;
+  let backendWinId = null;
+  let backendDelta = null;
+
+  try {
+    const { data } = await axios.post(`${API_BASE}/perfect/attempt`, {
+      timeMs: finalTime
+    });
+
+    backendWin = data.isWin;
+    backendWinId = data.winId;
+    backendDelta = data.deltaMs;
+
+    console.log("🎯 [/perfect/attempt] →", data);
+  } catch (err) {
+    console.error("ERROR /perfect/attempt →", err);
+  }
+
+  // Guardar delta real o fallback
+  setDeltaMs(backendDelta ?? Math.abs(finalTime - TARGET_MS));
+
+  // === 🔥 MODO TEST: GANADOR SIEMPRE ===
+  const isWin = true;
+
+  if (isWin) {
+    setResult("win");
+    setPrizeName(null);
+    setCoupon(null);
     setCouponError(null);
+    setModalAbierto(true);
 
-    try {
-      const { data } = await axios.post(`${API_BASE}/reclamar`, {
-        contacto,
-        gameId: 2,
+    // Guardar winId real para reclamar
+    window.__PTG_WIN_ID__ = backendWinId;
+    console.log("🏆 GANADOR — winId =", backendWinId);
+
+    // Preparar bloqueo local
+    const until = new Date(Date.now() + PTG_LOCK_MINUTES * 60 * 1000);
+    const iso = until.toISOString();
+    setLockedUntil(iso);
+    localStorage.setItem(PTG_LOCK_UNTIL_KEY, iso);
+    setShowLockModal(false);
+  } else {
+    setResult("lose");
+  }
+
+  // Intentos ↓
+  setAttemptsLeft((prev) => Math.max(0, prev - 1));
+}
+
+
+
+  /* ------------ RECLAMAR CUPÓN --------------- */
+const reclamarCupon = async () => {
+  if (!contacto) return alert("Por favor, ingresa tu número de contacto.");
+
+  const winId = window.__PTG_WIN_ID__;
+  if (!winId) {
+    setCouponError("No se puede reclamar: winId no existe.");
+    return;
+  }
+
+  setIsClaiming(true);
+  setCouponError(null);
+
+  try {
+    const { data } = await axios.post(`${API_BASE}/perfect/claim`, {
+      winId,
+      contacto
+    });
+
+    console.log("[/perfect/claim] →", data);
+
+    if (data.couponIssued && data.coupon?.code) {
+      setCoupon({
+        code: data.coupon.code,
+        expiresAt: data.coupon.expiresAt
       });
-      console.log("[PerfectTime /reclamar] resp:", data);
-
-      if (data.couponIssued && data.coupon?.code) {
-        setCoupon({
-          code: data.coupon.code,
-          expiresAt: data.coupon.expiresAt,
-        });
-        setPrizeName(
-          data.coupon?.name ||
-            data.prizeName ||
-            data.couponName ||
-            prizeName
-        );
-      } else {
-        setCouponError(
-          data.couponError ||
-            "No se pudo emitir el cupón automáticamente. Si ya tienes el premio, contáctanos para ayudarte."
-        );
-      }
-    } catch (error) {
-      console.error("Error PerfectTime /reclamar:", error);
-      setCouponError("Error de red/servidor al reclamar el premio.");
-    } finally {
-      setIsClaiming(false);
+      setPrizeName(data.coupon?.name || prizeName);
+    } else {
+      setCouponError(data.couponError || "No se pudo emitir el cupón.");
     }
-  };
+  } catch (err) {
+    console.error("Error en /perfect/claim:", err);
+    setCouponError("Error de servidor al reclamar el premio.");
+  }
+
+  setIsClaiming(false);
+};
+
 
   /* -------- Cerrar modal ganador → mostrar modal de bloqueo -------- */
   const cerrarModalGanador = () => {
