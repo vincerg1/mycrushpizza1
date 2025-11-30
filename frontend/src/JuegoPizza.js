@@ -298,40 +298,42 @@ export default function JuegoPizza() {
   }, [esGanador]);
 
   /* ------------ RECLAMAR PIZZA (ahora cupón) --------------- */
-  const reclamarPizza = async () => {
-    if (!contacto) return alert("Por favor, ingresa un número de contacto.");
-    setIsClaiming(true);
-    setCouponError(null);
+const reclamarPizza = async () => {
+  if (!contacto) {
+    alert("Por favor, ingresa un número de contacto.");
+    return;
+  }
 
-    try {
-      // 🔹 Nuevo endpoint: cupones del juego 1
-      const { data } = await axios.post(
-        `${API_BASE}/games/${GAME_ID}/issue`,
-        {
-          contact: contacto,
-          hours: 24,
-        }
+  setIsClaiming(true);
+  setCouponError(null);
+
+  try {
+    // 🔹 Endpoint del backend del JUEGO, no del de ventas
+    const { data } = await axios.post(`${API_BASE}/reclamar`, {
+      contacto,
+    });
+
+    console.log("[/reclamar] resp:", data);
+
+    if (data.couponIssued && data.coupon?.code) {
+      setCoupon({
+        code: data.coupon.code,
+        expiresAt: data.coupon.expiresAt,
+      });
+    } else {
+      setCouponError(
+        data.couponError ||
+          "No se pudo emitir el cupón automáticamente. Si ya tienes el número ganador, contáctanos para ayudarte."
       );
-      console.log("[/games/issue] resp:", data);
-
-      if (data.ok && data.code) {
-        setCoupon({
-          code: data.code,
-          expiresAt: data.expiresAt,
-        });
-      } else {
-        setCouponError(
-          data.error ||
-            "No se pudo emitir el cupón automáticamente. Si ya tienes el número ganador, contáctanos para ayudarte."
-        );
-      }
-    } catch (error) {
-      console.error("Error /games/issue:", error);
-      setCouponError("Error de red/servidor al reclamar el premio.");
-    } finally {
-      setIsClaiming(false);
     }
-  };
+  } catch (error) {
+    console.error("Error /reclamar:", error);
+    setCouponError("Error de red/servidor al reclamar el premio.");
+  } finally {
+    setIsClaiming(false);
+  }
+};
+
 
   const cerrarModalGanador = () => {
     console.log("[cerrarModalGanador]");
