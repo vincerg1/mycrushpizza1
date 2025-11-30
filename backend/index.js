@@ -544,13 +544,13 @@ function startServer () {
   });
 
   app.get('/perfect/estado', async (_, res) => {
-  try {
-    const lockedUntil = await ptGetLock();
-    res.json({ lockedUntil, now: new Date().toISOString() });
-  } catch (e) {
-    res.status(500).json(e);
-  }
-});
+    try {
+      const lockedUntil = await ptGetLock();
+      res.json({ lockedUntil, now: new Date().toISOString() });
+    } catch (e) {
+      res.status(500).json(e);
+    }
+  });
 
   app.get('/lista-ganadores', async (_, res) => {
     try {
@@ -823,7 +823,7 @@ function startServer () {
 
   app.post('/perfect/attempt', async (req, res) => {
     const ip = getClientIp(req);
-    const { timeMs } = req.body || {};
+    the const { timeMs } = req.body || {};
     const t = Number(timeMs || 0);
 
     if (!Number.isFinite(t) || t <= 0) {
@@ -918,7 +918,8 @@ function startServer () {
         'ℹ️  PerfectTiming: integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).'
       );
     }
- try {
+
+    try {
       await db.query(
         `UPDATE perfect_timing_estado
             SET lock_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? MINUTE)
