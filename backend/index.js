@@ -822,36 +822,37 @@ function startServer () {
   }
 
   app.post('/perfect/attempt', async (req, res) => {
-    const ip = getClientIp(req);
-    the const { timeMs } = req.body || {};
-    const t = Number(timeMs || 0);
+  const ip = getClientIp(req);
+  const { timeMs } = req.body || {};
+  const t = Number(timeMs || 0);
 
-    if (!Number.isFinite(t) || t <= 0) {
-      return res.status(400).json({ ok: false, error: 'invalid_time' });
-    }
+  if (!Number.isFinite(t) || t <= 0) {
+    return res.status(400).json({ ok: false, error: 'invalid_time' });
+  }
 
-    const delta = Math.abs(t - PT_TARGET_MS);
-    const isWin = delta <= PT_TOLERANCE_MS;
+  const delta = Math.abs(t - PT_TARGET_MS);
+  const isWin = delta <= PT_TOLERANCE_MS;
 
-    await ptLogAttempt({
-      tiempoMs: t,
-      deltaMs: delta,
-      resultado: isWin ? 'win' : 'lose',
-      ip
-    });
-
-    let winId = null;
-    if (isWin) {
-      winId = await ptInsertWinner({ tiempoMs: t, deltaMs: delta });
-    }
-
-    return res.json({
-      ok: true,
-      isWin,
-      deltaMs: delta,
-      winId
-    });
+  await ptLogAttempt({
+    tiempoMs: t,
+    deltaMs: delta,
+    resultado: isWin ? 'win' : 'lose',
+    ip
   });
+
+  let winId = null;
+  if (isWin) {
+    winId = await ptInsertWinner({ tiempoMs: t, deltaMs: delta });
+  }
+
+  return res.json({
+    ok: true,
+    isWin,
+    deltaMs: delta,
+    winId
+  });
+});
+
 
   app.post('/perfect/claim', async (req, res) => {
     const ip = getClientIp(req);
