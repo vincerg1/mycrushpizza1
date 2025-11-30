@@ -11,11 +11,11 @@ import Confetti from "react-confetti";
 const API_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
 /* ===== Alternancia robusta de destino (1:1 global por dispositivo) ===== */
-const TIKTOK_URL    = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
+const TIKTOK_URL = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
 const INSTAGRAM_URL = "https://www.mycrushpizza.com/venta";
 
 /* Nuevo esquema: contador + lock */
-const REDIRECT_SEQ_KEY  = "mcp_redirect_seq";
+const REDIRECT_SEQ_KEY = "mcp_redirect_seq";
 const REDIRECT_LOCK_KEY = "mcp_redirect_lock";
 
 /** Lock muy ligero con localStorage para serializar escrituras entre pestañas */
@@ -26,7 +26,7 @@ async function withLocalStorageLock(fn, { timeoutMs = 700 } = {}) {
   while (Date.now() - start < timeoutMs) {
     try {
       localStorage.setItem(REDIRECT_LOCK_KEY, token);
-      await new Promise(r => setTimeout(r, 0));
+      await new Promise((r) => setTimeout(r, 0));
       if (localStorage.getItem(REDIRECT_LOCK_KEY) === token) {
         try {
           return await fn();
@@ -39,7 +39,9 @@ async function withLocalStorageLock(fn, { timeoutMs = 700 } = {}) {
     } catch {
       break;
     }
-    await new Promise(r => setTimeout(r, 15 + Math.random() * 35));
+    await new Promise((r) =>
+      setTimeout(r, 15 + Math.random() * 35)
+    );
   }
   return await fn();
 }
@@ -85,6 +87,9 @@ export default function JuegoPizza() {
   const [couponError, setCouponError] = useState(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [prizeName, setPrizeName] = useState(null); // nombre del cupón/premio
+
+  /* --- Evitar doble POST /intentar --- */
+  const [isRolling, setIsRolling] = useState(false);
 
   /* ---------------- Bloqueo / countdown ---------------- */
   const [lockedUntil, setLockedUntil] = useState(null);
@@ -202,7 +207,25 @@ export default function JuegoPizza() {
 
   /* ------------ INTENTAR GANAR --------------- */
   const intentarGanar = async () => {
-    if (intentosRestantes === 0 || showTerms || (lockedUntil && remainingMs > 0)) return;
+    console.log("[intentarGanar] click", {
+      intentosRestantes,
+      showTerms,
+      lockedUntil,
+      remainingMs,
+      isRolling,
+    });
+
+    if (
+      isRolling ||
+      intentosRestantes === 0 ||
+      showTerms ||
+      (lockedUntil && remainingMs > 0)
+    ) {
+      console.log("[intentarGanar] guard hit, no lanzo petición");
+      return;
+    }
+
+    setIsRolling(true);
 
     try {
       const { data } = await axios.post(`${API_BASE}/intentar`);
@@ -225,12 +248,8 @@ export default function JuegoPizza() {
       if (data.esGanador) {
         console.log("[WIN] abrir modal; lockedUntil:", data.lockedUntil);
 
-        // nombre del premio/cupón si el backend lo envía
         const nameFromBackend =
-          data.prizeName ||
-          data.couponName ||
-          data.rewardName ||
-          null;
+          data.prizeName || data.couponName || data.rewardName || null;
         setPrizeName(nameFromBackend);
 
         setMensaje("🎉 ¡Ganaste un cupón! 🎉");
@@ -241,6 +260,8 @@ export default function JuegoPizza() {
         setShowLockModal(false);
         setCoupon(null);
         setCouponError(null);
+
+        console.log("[WIN] setModalAbierto(true) dentro de intentarGanar");
         setModalAbierto(true);
       } else {
         setMensaje("Sigue intentando 🍀");
@@ -262,13 +283,15 @@ export default function JuegoPizza() {
       } else {
         console.error("Error /intentar:", error);
       }
+    } finally {
+      setIsRolling(false);
     }
   };
 
   /* Extra: asegura que al cambiar esGanador se abra el modal */
   useEffect(() => {
     if (esGanador) {
-      console.log("[WIN] setModalAbierto(true) por efecto");
+      console.log("[WIN effect] esGanador=true → setModalAbierto(true)");
       setModalAbierto(true);
     }
   }, [esGanador]);
@@ -303,6 +326,7 @@ export default function JuegoPizza() {
   };
 
   const cerrarModalGanador = () => {
+    console.log("[cerrarModalGanador]");
     setModalAbierto(false);
     setEsGanador(false); // apaga confetti
     if (lockedUntil && remainingMs > 0) setShowLockModal(true);
@@ -321,10 +345,26 @@ export default function JuegoPizza() {
             <h2 className="pulse-heading">Antes de jugar</h2>
             <p>
               Para participar debes ser mayor de 18 años y aceptar nuestras&nbsp;
-              <a href="/bases.html" target="_blank" rel="noopener noreferrer">Bases Legales</a>&nbsp;y&nbsp;
-              <a href="/privacidad.html" target="_blank" rel="noopener noreferrer">Política de Privacidad</a>.
+              <a
+                href="/bases.html"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Bases Legales
+              </a>
+              &nbsp;y&nbsp;
+              <a
+                href="/privacidad.html"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Política de Privacidad
+              </a>
+              .
             </p>
-            <button className="btn-acepto" onClick={aceptarTerminos}>Acepto</button>
+            <button className="btn-acepto" onClick={aceptarTerminos}>
+              Acepto
+            </button>
           </div>
         </div>
       )}
@@ -338,12 +378,16 @@ export default function JuegoPizza() {
             {ultimoNumeroGanado != null && (
               <p className="lock-subtitle">
                 Último número ganador:&nbsp;
-                <span className="pill">{String(ultimoNumeroGanado).padStart(3, "0")}</span>
+                <span className="pill">
+                  {String(ultimoNumeroGanado).padStart(3, "0")}
+                </span>
               </p>
             )}
             <p className="lock-caption">Se reanudará en:</p>
             <div className="countdown">{formatCountdown(remainingMs)}</div>
-            <p className="lock-eta">Hora estimada: {new Date(lockedUntil).toLocaleTimeString()}</p>
+            <p className="lock-eta">
+              Hora estimada: {new Date(lockedUntil).toLocaleTimeString()}
+            </p>
           </div>
         </div>
       )}
@@ -358,18 +402,20 @@ export default function JuegoPizza() {
 
       {/* ======= TARJETA BLANCA: LOGO + NÚMERO ======= */}
       <div className="card">
-        <img
-          src={logo}
-          alt="MyCrushPizza"
-          className="logo logo--in-card"
-        />
+        <img src={logo} alt="MyCrushPizza" className="logo logo--in-card" />
         {numeroGanador !== null && (
           <div className={`numero-ganador ${shakeGanador ? "shake" : ""}`}>
             <h2 className="winner-title">NÚMERO GANADOR</h2>
             <div className="numero-casillas">
-              {numeroGanador.toString().padStart(3, "0").split("").map((d, i) => (
-                <span key={i} className="casilla">{d}</span>
-              ))}
+              {numeroGanador
+                .toString()
+                .padStart(3, "0")
+                .split("")
+                .map((d, i) => (
+                  <span key={i} className="casilla">
+                    {d}
+                  </span>
+                ))}
             </div>
           </div>
         )}
@@ -387,7 +433,9 @@ export default function JuegoPizza() {
 
       {showToast && (
         <div className="toast-bubble">
-          <span className="toast-numero">{intento?.toString().padStart(3, "0")}</span>
+          <span className="toast-numero">
+            {intento?.toString().padStart(3, "0")}
+          </span>
           <p>{mensaje}</p>
         </div>
       )}
@@ -399,9 +447,12 @@ export default function JuegoPizza() {
           role="dialog"
           aria-modal="true"
           onClick={cerrarModalGanador}
-          style={{ zIndex: 200000 }}   // <<— fuerza estar por encima de todo
+          style={{ zIndex: 200000 }}
         >
-          <div className="modal-contenido" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-contenido"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               className="modal-close"
               aria-label="Cerrar"
@@ -432,13 +483,18 @@ export default function JuegoPizza() {
                   {isClaiming ? "Procesando…" : "Reclamar cupón 🎊"}
                 </button>
                 {couponError && (
-                  <p style={{ color: "#e63946", marginTop: 12 }}>{couponError}</p>
+                  <p style={{ color: "#e63946", marginTop: 12 }}>
+                    {couponError}
+                  </p>
                 )}
               </>
             ) : (
               <>
                 <h2>🎟️ ¡Cupón listo!</h2>
-                <p>Usa este código en el portal de ventas dentro del tiempo indicado.</p>
+                <p>
+                  Usa este código en el portal de ventas dentro del tiempo
+                  indicado.
+                </p>
                 <div className="coupon-code">{coupon.code}</div>
                 <p>Vence: {new Date(coupon.expiresAt).toLocaleString()}</p>
 
@@ -448,7 +504,10 @@ export default function JuegoPizza() {
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(coupon.code);
-                        setTimeout(() => goToSalesWithCoupon(coupon.code), 80);
+                        setTimeout(
+                          () => goToSalesWithCoupon(coupon.code),
+                          80
+                        );
                         alert("Código copiado ✅");
                       } catch {}
                     }}
@@ -466,8 +525,16 @@ export default function JuegoPizza() {
       {showCookies && (
         <div className="cookie-banner">
           <span>
-            Usamos cookies para análisis y personalización. Más info en nuestra&nbsp;
-            <a href="/cookies.html" target="_blank" rel="noopener noreferrer">Política de Cookies</a>.
+            Usamos cookies para análisis y personalización. Más info en
+            nuestra&nbsp;
+            <a
+              href="/cookies.html"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Política de Cookies
+            </a>
+            .
           </span>
           <div className="cookie-actions">
             <button
@@ -508,7 +575,10 @@ export default function JuegoPizza() {
               <FontAwesomeIcon icon={faTiktok} className="icon" />
             </a>
             <a href="tel:694301433" className="call-link" aria-label="Llamar">
-              <FontAwesomeIcon icon={faMobileScreenButton} className="icon" />
+              <FontAwesomeIcon
+                icon={faMobileScreenButton}
+                className="icon"
+              />
             </a>
           </div>
 
