@@ -9,6 +9,7 @@ import Confetti from "react-confetti";
 
 /* ========= Config ========= */
 const API_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
+const GAME_ID = 1; // 👈 juego Pizza
 
 /* ===== Alternancia robusta de destino (1:1 global por dispositivo) ===== */
 const TIKTOK_URL = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
@@ -303,22 +304,29 @@ export default function JuegoPizza() {
     setCouponError(null);
 
     try {
-      const { data } = await axios.post(`${API_BASE}/reclamar`, { contacto });
-      console.log("[/reclamar] resp:", data);
+      // 🔹 Nuevo endpoint: cupones del juego 1
+      const { data } = await axios.post(
+        `${API_BASE}/games/${GAME_ID}/issue`,
+        {
+          contact: contacto,
+          hours: 24,
+        }
+      );
+      console.log("[/games/issue] resp:", data);
 
-      if (data.couponIssued && data.coupon?.code) {
+      if (data.ok && data.code) {
         setCoupon({
-          code: data.coupon.code,
-          expiresAt: data.coupon.expiresAt,
+          code: data.code,
+          expiresAt: data.expiresAt,
         });
       } else {
         setCouponError(
-          data.couponError ||
+          data.error ||
             "No se pudo emitir el cupón automáticamente. Si ya tienes el número ganador, contáctanos para ayudarte."
         );
       }
     } catch (error) {
-      console.error("Error /reclamar:", error);
+      console.error("Error /games/issue:", error);
       setCouponError("Error de red/servidor al reclamar el premio.");
     } finally {
       setIsClaiming(false);
