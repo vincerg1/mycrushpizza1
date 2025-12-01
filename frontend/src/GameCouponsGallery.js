@@ -6,7 +6,10 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp, faTiktok } from "@fortawesome/free-brands-svg-icons";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 
-const BACKEND_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
+const BACKEND_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(
+  /\/+$/,
+  ""
+);
 
 const GAME_ID = process.env.REACT_APP_GAME_ID
   ? Number(process.env.REACT_APP_GAME_ID)
@@ -55,7 +58,10 @@ async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
     ...(campaign != null ? { campaign } : {}),
   };
 
-  console.log("[GameCouponsGallery] POST /game/direct-claim payload:", payload);
+  console.log(
+    "[GameCouponsGallery] POST /game/direct-claim payload:",
+    payload
+  );
 
   const res = await fetch(`${BACKEND_BASE}/game/direct-claim`, {
     method: "POST",
@@ -79,6 +85,81 @@ async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
     data
   );
   return data || { ok: false, error: "empty_response" };
+}
+
+/**
+ * Estado de bloqueo del juego (para countdown)
+ * gameStatus[gameId] = {
+ *   lockedUntil: Date | null,
+ *   remainingMs: number,
+ *   isLocked: boolean
+ * }
+ */
+async function fetchGameStatusForIds(gameIds) {
+  if (!BACKEND_BASE) return {};
+
+  const uniqueIds = Array.from(new Set(gameIds || [])).filter(
+    (id) => id != null
+  );
+  if (uniqueIds.length === 0) return {};
+
+  const now = Date.now();
+  const status = {};
+
+  for (const id of uniqueIds) {
+    try {
+      let url = null;
+      if (id === 1) {
+        // Número Ganador
+        url = `${BACKEND_BASE}/estado`;
+      } else if (id === 2) {
+        // Perfect Timing
+        url = `${BACKEND_BASE}/perfect/estado`;
+      } else {
+        continue;
+      }
+
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        console.warn(
+          "[GameCouponsGallery] Failed to fetch game estado for",
+          id,
+          res.status
+        );
+        continue;
+      }
+
+      const data = await res.json();
+      const lockedRaw = data.lockedUntil || data.lock_until || null;
+      if (!lockedRaw) {
+        status[id] = {
+          lockedUntil: null,
+          remainingMs: 0,
+          isLocked: false,
+        };
+        continue;
+      }
+
+      const lockedUntil = new Date(lockedRaw);
+      const diff = lockedUntil.getTime() - now;
+      status[id] = {
+        lockedUntil,
+        remainingMs: diff > 0 ? diff : 0,
+        isLocked: diff > 0,
+      };
+    } catch (e) {
+      console.warn(
+        "[GameCouponsGallery] Error fetching game estado for",
+        id,
+        e
+      );
+    }
+  }
+
+  return status;
 }
 
 /* ---------------------- Formatting helpers ---------------------- */
@@ -159,6 +240,37 @@ function classifyBucket(card) {
   return "direct";
 }
 
+function gameMetaForId(gameId) {
+  if (gameId === 1) {
+    return {
+      label: "Número Ganador (Juego diario)",
+      icon: "🎯",
+    };
+  }
+  if (gameId === 2) {
+    return {
+      label: "Perfect Timing (Reflejos)",
+      icon: "⏱️",
+    };
+  }
+  return null;
+}
+
+function formatCountdown(ms) {
+  if (!ms || ms <= 0) return null;
+  const totalSec = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSec / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+
+  const pad = (n) => String(n).padStart(2, "0");
+
+  if (hours > 0) {
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  }
+  return `${pad(minutes)}:${pad(seconds)}`;
+}
+
 /* ---------------------- Normalization ---------------------- */
 
 function normalizeGalleryData(raw) {
@@ -209,7 +321,7 @@ function normalizeGalleryData(raw) {
         displaySubtitle,
         displayBadge: isGameBucket ? "PLAY & WIN" : "REWARD",
 
-        // 👇 añadimos el gameId para usarlo al navegar
+        // 👇 añadimos el gameId para usarlo al navegar y para el estado
         gameId: c.gameId ?? null,
 
         rawCard: c,
@@ -238,6 +350,7 @@ function normalizeGalleryData(raw) {
         displaySubtitle: makeSubtitle(exampleText),
         displayBadge: "REWARD",
         rawCard: g,
+        gameId: null,
       };
     });
     console.log("[GameCouponsGallery] Normalized legacy groups:", groups);
@@ -247,10 +360,9 @@ function normalizeGalleryData(raw) {
   return { groups: [] };
 }
 
-
 /* ---------------------- Card component ---------------------- */
 
-function CouponCard({ group, isActive, onSelect, onPrimary }) {
+function CouponCard({ group, isActive, onSelect, onPrimary, gameStatus }) {
   const {
     displayTitle,
     displaySubtitle,
@@ -259,16 +371,22 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
     items,
     stock,
     bucket,
+    gameId,
   } = group;
 
   const isGameBucket = String(bucket || "").startsWith("game");
+  const bucketClass = isGameBucket ? "gcg-card--game" : "gcg-card--direct";
 
-  const bucketClass = isGameBucket
-    ? "gcg-card--game"
-    : "gcg-card--direct";
+  const gameMeta = isGameBucket ? gameMetaForId(gameId) : null;
+  const metaLabel = gameMeta?.label || null;
+  const metaIcon = gameMeta?.icon || null;
+
+  const status = gameStatus || null;
+  const isLocked = isGameBucket && status && status.isLocked;
+  const countdownStr =
+    isGameBucket && status ? formatCountdown(status.remainingMs) : null;
 
   // --- Normalización de stock / remaining ---
-  // prioridad: stock agregado desde el backend → items → 0
   let remaining =
     typeof stock === "number"
       ? stock
@@ -276,7 +394,6 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
       ? items
       : 0;
 
-  // null lo usamos para "ilimitado" (por si en algún momento lo mandas así)
   const isUnlimited = stock === null;
   if (isUnlimited) {
     remaining = null;
@@ -291,8 +408,12 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
 
   const hasStock = !isSoldOut && (isUnlimited || (remaining ?? 0) > 0);
 
+  const canInteract = hasStock && !isLocked;
+
   const ctaLabel = isSoldOut
-    ? "Sin stock"
+    ? "Sold out"
+    : isGameBucket && isLocked
+    ? "Paused"
     : isGameBucket
     ? "Play now"
     : "Claim";
@@ -302,6 +423,7 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
     bucketClass,
     isActive ? "gcg-card--active" : "",
     isSoldOut ? "gcg-card--soldout" : "",
+    isLocked ? "gcg-card--locked" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -314,6 +436,23 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
 
       <div className="gcg-card-body">
         <h2 className="gcg-card-title">{displayTitle}</h2>
+
+        {/* Alegoría del juego justo debajo del título */}
+        {isGameBucket && metaLabel && (
+          <p className="gcg-card-game-label">
+            {metaIcon && (
+              <span className="gcg-card-game-label-icon">{metaIcon}</span>
+            )}
+            {metaLabel}
+          </p>
+        )}
+
+        {/* Countdown si el juego está bloqueado */}
+        {isGameBucket && isLocked && countdownStr && (
+          <p className="gcg-card-countdown">
+            ⏳ Next round in {countdownStr}
+          </p>
+        )}
 
         {exampleText && <p className="gcg-card-example">{exampleText}</p>}
 
@@ -353,10 +492,10 @@ function CouponCard({ group, isActive, onSelect, onPrimary }) {
         <button
           type="button"
           className="gcg-card-cta"
-          disabled={!hasStock}
+          disabled={!canInteract}
           onClick={(e) => {
             e.stopPropagation();
-            if (!hasStock) return;
+            if (!canInteract) return;
             onPrimary();
           }}
         >
@@ -518,6 +657,8 @@ export default function GameCouponsGallery() {
     result: null,
   });
 
+  // Estado de bloqueo / countdown por juego
+  const [gameStatus, setGameStatus] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -553,33 +694,105 @@ export default function GameCouponsGallery() {
     };
   }, []);
 
-function handlePrimaryActionForGroup(group) {
-  console.log("[GameCouponsGallery] Primary action on group:", group);
+  // Cargar estado de bloqueo de juegos cuando sabemos qué gameIds hay en la galería
+  useEffect(() => {
+    if (!groups || groups.length === 0) return;
 
-  if (!group) return;
+    const gameIds = groups
+      .filter((g) => String(g.bucket || "").startsWith("game"))
+      .map((g) => g.gameId)
+      .filter((id) => id != null);
 
-  const isGameBucket = String(group.bucket || "").startsWith("game");
-  const gameId = group.gameId ?? group.rawCard?.gameId ?? null;
+    if (gameIds.length === 0) return;
 
-  if (isGameBucket) {
-    // 🔀 Mapea cada gameId a su ruta de juego
-    if (gameId === 1) {
-      navigate("/jugar");      // juego 1 (el de siempre)
-    } else if (gameId === 2) {
-      navigate("/perfect-timing");    // ajusta a la ruta real de tu segundo juego
-    } else {
-      // fallback por si llega algo raro
-      navigate("/jugar");
+    let cancelled = false;
+
+    async function loadStatus() {
+      const status = await fetchGameStatusForIds(gameIds);
+      if (!cancelled && status && Object.keys(status).length) {
+        setGameStatus((prev) => ({ ...prev, ...status }));
+      }
     }
-    return;
+
+    loadStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [groups]);
+
+  // Intervalo de 1s para ir actualizando el countdown
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setGameStatus((prev) => {
+        const now = Date.now();
+        let changed = false;
+        const next = {};
+
+        for (const key of Object.keys(prev)) {
+          const s = prev[key];
+          if (!s || !s.lockedUntil) {
+            next[key] = s;
+            continue;
+          }
+          const diff = s.lockedUntil.getTime() - now;
+          const isLocked = diff > 0;
+          const remainingMs = isLocked ? diff : 0;
+
+          if (
+            s.remainingMs !== remainingMs ||
+            Boolean(s.isLocked) !== isLocked
+          ) {
+            changed = true;
+          }
+
+          next[key] = {
+            ...s,
+            remainingMs,
+            isLocked,
+          };
+        }
+
+        return changed ? next : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  function handlePrimaryActionForGroup(group) {
+    console.log("[GameCouponsGallery] Primary action on group:", group);
+
+    if (!group) return;
+
+    const isGameBucket = String(group.bucket || "").startsWith("game");
+    const gameId = group.gameId ?? group.rawCard?.gameId ?? null;
+
+    if (isGameBucket) {
+      const status = gameId != null ? gameStatus[gameId] : null;
+      const isLocked = status && status.isLocked;
+
+      if (isLocked) {
+        // ya reflejamos el bloqueo en la tarjeta; por seguridad evitamos navegación
+        return;
+      }
+
+      // 🔀 Mapea cada gameId a su ruta de juego
+      if (gameId === 1) {
+        navigate("/jugar"); // juego 1 (el de siempre)
+      } else if (gameId === 2) {
+        navigate("/perfect-timing"); // segundo juego
+      } else {
+        // fallback por si llega algo raro
+        navigate("/jugar");
+      }
+      return;
+    }
+
+    // direct → open modal for that group
+    setActiveGroup(group);
+    setClaimState({ sending: false, error: null, result: null });
+    setClaimOpen(true);
   }
-
-  // direct → open modal for that group
-  setActiveGroup(group);
-  setClaimState({ sending: false, error: null, result: null });
-  setClaimOpen(true);
-}
-
 
   const handleSubmitClaim = async ({ name, phone }) => {
     if (!activeGroup) return;
@@ -607,7 +820,7 @@ function handlePrimaryActionForGroup(group) {
           result: resp,
         });
 
-        // 🔄 Opcional: refrescar la galería para que baje `remaining`
+        // 🔄 Refrescar la galería para que baje `remaining`
         try {
           const raw = await fetchCouponsGallery();
           const { groups: g } = normalizeGalleryData(raw);
@@ -648,9 +861,7 @@ function handlePrimaryActionForGroup(group) {
         </header>
 
         {loading && (
-          <div className="gcg-state gcg-state--loading">
-            Loading offers…
-          </div>
+          <div className="gcg-state gcg-state--loading">Loading offers…</div>
         )}
 
         {error && !loading && (
@@ -681,6 +892,11 @@ function handlePrimaryActionForGroup(group) {
                       isActive={activeGroup?.type === group.type}
                       onSelect={() => setActiveGroup(group)}
                       onPrimary={() => handlePrimaryActionForGroup(group)}
+                      gameStatus={
+                        group.gameId != null
+                          ? gameStatus[group.gameId] || null
+                          : null
+                      }
                     />
                   </div>
                 ))}
@@ -725,15 +941,8 @@ function handlePrimaryActionForGroup(group) {
             >
               <FontAwesomeIcon icon={faTiktok} className="icon" />
             </a>
-            <a
-              href="tel:694301433"
-              className="call-link"
-              aria-label="Llamar"
-            >
-              <FontAwesomeIcon
-                icon={faMobileScreenButton}
-                className="icon"
-              />
+            <a href="tel:694301433" className="call-link" aria-label="Llamar">
+              <FontAwesomeIcon icon={faMobileScreenButton} className="icon" />
             </a>
           </div>
 
