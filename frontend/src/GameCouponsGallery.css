@@ -671,4 +671,94 @@
     padding-inline: 12px;
     font-size: 0.86rem;
   }
+  /* ===== Estado SOLD OUT ===== */
+/* Mantiene el look general; solo lo “apaga” un poco */
+.gcg-card--soldout {
+  filter: grayscale(0.05) saturate(0.9);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.55);
+  transform: translateY(0) scale(0.96);
+  border-color: rgba(229, 231, 235, 0.9);
+}
+
+/* No levantamos la tarjeta al hover si está agotada */
+.gcg-card--soldout:hover {
+  transform: translateY(0) scale(0.96);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.55);
+}
+
+/* Cinta diagonal SOLD OUT (usa ::before, por encima del contenido) */
+.gcg-card--soldout::before {
+  content: "SOLD OUT";
+  position: absolute;
+  top: 16px;
+  right: -42px;
+  padding: 4px 46px;
+  transform: rotate(35deg);
+  background: linear-gradient(135deg, #111827, #4b5563);
+  color: #f9fafb;
+  text-transform: uppercase;
+  font-weight: 900;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
+  z-index: 3;
+}
+
+/* Si es de juego + sold out, desactivamos el shimmer dorado */
+.gcg-card--soldout.gcg-card--game::before {
+  /* la cinta de sold out ya se aplica con el selector anterior */
+}
+
+/* CTA cuando está agotado: pill discreto, no botón principal */
+.gcg-card--soldout .gcg-card-cta {
+  opacity: 0.75;
+  cursor: not-allowed;
+  box-shadow: none;
+  background: transparent;
+  border: 1px solid rgba(249, 250, 251, 0.8);
+  color: rgba(249, 250, 251, 0.85);
+}
+
+/* Texto “sold out” del bloque de stock (abajo a la izquierda) */
+.gcg-card-stock-empty {
+  font-size: 0.82rem;
+  font-weight: 700;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+/* Etiqueta del juego bajo el título */
+.gcg-card-game-label {
+  margin: 2px 0 4px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.gcg-card--game .gcg-card-game-label {
+  color: rgba(45, 28, 9, 0.9);
+}
+
+.gcg-card-game-label-icon {
+  margin-right: 4px;
+}
+
+/* Countdown cuando el juego está bloqueado */
+.gcg-card-countdown {
+  margin: 2px 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.gcg-card--game .gcg-card-countdown {
+  color: rgba(65, 40, 10, 0.9);
+}
+
 }
