@@ -207,87 +207,72 @@ export default function JuegoPizza() {
   };
 
   /* ------------ INTENTAR GANAR --------------- */
-  const intentarGanar = async () => {
-    console.log("[intentarGanar] click", {
-      intentosRestantes,
-      showTerms,
-      lockedUntil,
-      remainingMs,
-      isRolling,
+const intentarGanar = async () => {
+  if (
+    isRolling ||
+    intentosRestantes === 0 ||
+    showTerms ||
+    (lockedUntil && remainingMs > 0)
+  ) return;
+
+  setIsRolling(true);
+  setEsGanador(false); // 👈 reset explícito
+
+  try {
+    const { data } = await axios.post(`${API_BASE}/intentar`);
+
+    setIntento(data.intento);
+
+    setIntentosRestantes((prev) => {
+      const left = prev - 1;
+      if (left === 0 && !data.esGanador) {
+        (async () => {
+          const url = await getNextRedirectUrl();
+          setTimeout(() => window.location.assign(url), 2000);
+        })();
+      }
+      return left;
     });
 
-    if (
-      isRolling ||
-      intentosRestantes === 0 ||
-      showTerms ||
-      (lockedUntil && remainingMs > 0)
-    ) {
-      console.log("[intentarGanar] guard hit, no lanzo petición");
-      return;
-    }
+    if (data.esGanador) {
+      const nameFromBackend =
+        data.prizeName || data.couponName || data.rewardName || null;
 
-    setIsRolling(true);
+      setPrizeName(nameFromBackend);
+      setMensaje("🎉 ¡Ganaste un cupón! 🎉");
 
-    try {
-      const { data } = await axios.post(`${API_BASE}/intentar`);
-      console.log("[/intentar] resp:", data);
-
-      setIntento(data.intento);
-      setEsGanador(Boolean(data.esGanador));
-
-      setIntentosRestantes((prev) => {
-        const left = prev - 1;
-        if (left === 0 && !data.esGanador) {
-          (async () => {
-            const url = await getNextRedirectUrl();
-            setTimeout(() => window.location.assign(url), 2000);
-          })();
-        }
-        return left;
-      });
-
-      if (data.esGanador) {
-        console.log("[WIN] abrir modal; lockedUntil:", data.lockedUntil);
-
-        const nameFromBackend =
-          data.prizeName || data.couponName || data.rewardName || null;
-        setPrizeName(nameFromBackend);
-
-        setMensaje("🎉 ¡Ganaste un cupón! 🎉");
-        if (data.lockedUntil) {
-          setLockedUntil(data.lockedUntil);
-          setUltimoNumeroGanado(data.numeroGanador);
-        }
-        setShowLockModal(false);
-        setCoupon(null);
-        setCouponError(null);
-
-        console.log("[WIN] setModalAbierto(true) dentro de intentarGanar");
-        setModalAbierto(true);
-      } else {
-        setMensaje("Sigue intentando 🍀");
-        setShowToast(true);
+      if (data.lockedUntil) {
+        setLockedUntil(data.lockedUntil);
+        setUltimoNumeroGanado(data.numeroGanador);
       }
 
-      setShakeGanador(!data.esGanador);
-      setTimeout(() => {
-        setShowToast(false);
-        setShakeGanador(false);
-      }, 2000);
-    } catch (error) {
-      const status = error?.response?.status;
-      const resp = error?.response?.data;
-      if (status === 423 && resp?.lockedUntil) {
-        setLockedUntil(resp.lockedUntil);
-        setUltimoNumeroGanado(numeroGanador);
-        setShowLockModal(true);
-      } else {
-        console.error("Error /intentar:", error);
-      }
-    } finally {
-      setIsRolling(false);
+      setCoupon(null);
+      setCouponError(null);
+      setShowLockModal(false);
+
+      setEsGanador(true);     // 🎊 confetti
+      setModalAbierto(true);  // ✅ modal (UN SOLO LUGAR)
+    } else {
+      setMensaje("Sigue intentando 🍀");
+      setShowToast(true);
     }
-  };
+
+  } catch (error) {
+    const status = error?.response?.status;
+    const resp = error?.response?.data;
+    if (status === 423 && resp?.lockedUntil) {
+      setLockedUntil(resp.lockedUntil);
+      setUltimoNumeroGanado(numeroGanador);
+      setShowLockModal(true);
+    } else {
+      console.error("Error /intentar:", error);
+    }
+  } finally {
+    setIsRolling(false);
+    setTimeout(() => setShowToast(false), 2000);
+  }
+};
+
 
   /* Extra: asegura que al cambiar esGanador se abra el modal */
   useEffect(() => {
