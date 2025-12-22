@@ -23,13 +23,12 @@ const http  = require('http');
 const NODE_ENV   = process.env.NODE_ENV || 'development';
 const PORT       = process.env.PORT     || 8080;
 const FORCE_WIN  = process.env.FORCE_WIN === '1';
-const FTW_EVERY  = Number(process.env.FTW_EVERY || 0); // 0 = desactivado
+const FTW_EVERY       = Number(process.env.FTW_EVERY || 0); // 0 = desactivado
 const PT_TARGET_MS    = Number(process.env.PT_TARGET_MS || 9990);  // 9.99 s
 const PT_TOLERANCE_MS = Number(process.env.PT_TOLERANCE_MS || 40); // ±40 ms
 const PT_GAME_ID      = Number(process.env.PT_GAME_ID || 2);       // Game.id = 2 en ventas
-
-/** 🔒 BLOQUEO DEL JUEGO (Número Ganador) */
-const LOCK_MINUTES = Number(
+const NG_GAME_ID      = Number(process.env.NG_GAME_ID || process.env.GAME_ID || 1);
+const LOCK_MINUTES    = Number(
   process.env.LOCK_MINUTES !== undefined ? process.env.LOCK_MINUTES : 1
 );
 
@@ -159,8 +158,8 @@ const safe = { ...cfg, password: cfg.password ? '***' + cfg.password.slice(-4) :
 console.log('🔍 Variables de conexión detectadas:');
 console.table(safe);
 console.log('🎯 FTW_EVERY =', FTW_EVERY, '| FORCE_WIN =', FORCE_WIN);
-console.log('🎯 PerfectTiming → TARGET_MS =', PT_TARGET_MS, 'TOLERANCE_MS =', PT_TOLERANCE_MS, 'GAME_ID =', PT_GAME_ID);
-
+console.log('🎯 PerfectTiming → TARGET_MS =', PT_TARGET_MS, 'TOLERANCE_MS =', PT_TOLERANCE_MS, 'PT_GAME_ID =', PT_GAME_ID);
+console.log('🎯 NúmeroGanador → NG_GAME_ID =', NG_GAME_ID);
 /*-------------- 2. CREAR EL POOL Y PROBAR CONEXIÓN ---------------*/
 let db;
 
@@ -677,7 +676,7 @@ function startServer () {
   });
 
   app.post('/reclamar', async (req, res) => {
-    const { contacto, customerId, campaign } = req.body; // opcionales
+    const { contacto, campaign } = req.body; // opcionales
     const ip = getClientIp(req);
 
     try {
@@ -712,7 +711,7 @@ function startServer () {
       let couponErr  = null;
 
       if (salesEnabled) {
-        const gameId = Number(process.env.GAME_ID || 1);
+        const gameId = NG_GAME_ID;
         const url    = salesUrl(`/api/coupons/games/${gameId}/issue`);
         const idem   = `claim-${g.id}`;
         const hoursForCoupon =
@@ -723,7 +722,6 @@ function startServer () {
           hours: hoursForCoupon,
           contact: contacto || undefined,        // SMS opcional en Ventas
           gameNumber: g.numero,                  // contexto
-          customerId: customerId ? Number(customerId) : undefined,
           campaign: campaign || process.env.GAME_CAMPAIGN || undefined
         };
 
@@ -852,11 +850,9 @@ function startServer () {
     winId
   });
 });
-
-
   app.post('/perfect/claim', async (req, res) => {
     const ip = getClientIp(req);
-    const { winId, contacto, customerId, campaign } = req.body || {};
+    const { winId, contacto, campaign } = req.body || {};
 
     if (!winId) {
       return res.status(400).json({ ok: false, error: 'missing_win_id' });
@@ -900,7 +896,6 @@ function startServer () {
         hours: hoursForCoupon,
         contact: contacto || undefined,
         gameNumber: row.tiempo_ms,
-        customerId: customerId ? Number(customerId) : undefined,
         campaign: campaign || process.env.PT_GAME_CAMPAIGN || undefined
       };
 
