@@ -12,7 +12,8 @@ const API_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 const GAME_ID = 1; // 👈 juego Pizza
 
 /* ===== Alternancia robusta de destino (1:1 global por dispositivo) ===== */
-const TIKTOK_URL = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
+const TIKTOK_URL =
+  "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
 const INSTAGRAM_URL = "https://www.mycrushpizza.com/venta";
 
 /* Nuevo esquema: contador + lock */
@@ -40,9 +41,7 @@ async function withLocalStorageLock(fn, { timeoutMs = 700 } = {}) {
     } catch {
       break;
     }
-    await new Promise((r) =>
-      setTimeout(r, 15 + Math.random() * 35)
-    );
+    await new Promise((r) => setTimeout(r, 15 + Math.random() * 35));
   }
   return await fn();
 }
@@ -80,7 +79,11 @@ export default function JuegoPizza() {
   const [intentosRestantes, setIntentosRestantes] = useState(3);
   const [showToast, setShowToast] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
+
+  // ✅ nombre para evitar Customer.name = NULL
+  const [nombre, setNombre] = useState("");
   const [contacto, setContacto] = useState("");
+
   const [shakeGanador, setShakeGanador] = useState(false);
 
   /* --- Estados para el cupón --- */
@@ -127,7 +130,7 @@ export default function JuegoPizza() {
 
   /* Log de arranque para depurar entorno */
   useEffect(() => {
-    console.log("[boot] API_BASE =", API_BASE);
+    console.log("[boot] API_BASE =", API_BASE, "| GAME_ID =", GAME_ID);
   }, []);
 
   /* ---------------- Carga del número ganador + estado bloqueo ------------- */
@@ -201,129 +204,129 @@ export default function JuegoPizza() {
     localStorage.setItem("mcp_cookiesConsent", "all");
     setShowCookies(false);
   };
-  const rechazarCookies = () => {
-    localStorage.setItem("mcp_cookiesConsent", "none");
-    setShowCookies(false);
-  };
 
   /* ------------ INTENTAR GANAR --------------- */
-const intentarGanar = async () => {
-  if (
-    isRolling ||
-    intentosRestantes === 0 ||
-    showTerms ||
-    (lockedUntil && remainingMs > 0)
-  ) return;
+  const intentarGanar = async () => {
+    if (
+      isRolling ||
+      intentosRestantes === 0 ||
+      showTerms ||
+      (lockedUntil && remainingMs > 0)
+    )
+      return;
 
-  setIsRolling(true);
-  setEsGanador(false); // 👈 reset explícito
+    setIsRolling(true);
+    setEsGanador(false); // reset explícito
 
-  try {
-    const { data } = await axios.post(`${API_BASE}/intentar`);
+    try {
+      const { data } = await axios.post(`${API_BASE}/intentar`);
+      setIntento(data.intento);
 
-    setIntento(data.intento);
-
-    setIntentosRestantes((prev) => {
-      const left = prev - 1;
-      if (left === 0 && !data.esGanador) {
-        (async () => {
-          const url = await getNextRedirectUrl();
-          setTimeout(() => window.location.assign(url), 2000);
-        })();
-      }
-      return left;
-    });
-
-    if (data.esGanador) {
-      const nameFromBackend =
-        data.prizeName || data.couponName || data.rewardName || null;
-
-      setPrizeName(nameFromBackend);
-      setMensaje("🎉 ¡Ganaste un cupón! 🎉");
-
-      if (data.lockedUntil) {
-        setLockedUntil(data.lockedUntil);
-        setUltimoNumeroGanado(data.numeroGanador);
-      }
-
-      setCoupon(null);
-      setCouponError(null);
-      setShowLockModal(false);
-
-      setEsGanador(true);     // 🎊 confetti
-      setModalAbierto(true);  // ✅ modal (UN SOLO LUGAR)
-    } else {
-      setMensaje("Sigue intentando 🍀");
-      setShowToast(true);
-    }
-
-  } catch (error) {
-    const status = error?.response?.status;
-    const resp = error?.response?.data;
-    if (status === 423 && resp?.lockedUntil) {
-      setLockedUntil(resp.lockedUntil);
-      setUltimoNumeroGanado(numeroGanador);
-      setShowLockModal(true);
-    } else {
-      console.error("Error /intentar:", error);
-    }
-  } finally {
-    setIsRolling(false);
-    setTimeout(() => setShowToast(false), 2000);
-  }
-};
-
-
-  /* Extra: asegura que al cambiar esGanador se abra el modal */
-  useEffect(() => {
-    if (esGanador) {
-      console.log("[WIN effect] esGanador=true → setModalAbierto(true)");
-      setModalAbierto(true);
-    }
-  }, [esGanador]);
-
-  /* ------------ RECLAMAR PIZZA (ahora cupón) --------------- */
-const reclamarPizza = async () => {
-  if (!contacto) {
-    alert("Por favor, ingresa un número de contacto.");
-    return;
-  }
-
-  setIsClaiming(true);
-  setCouponError(null);
-
-  try {
-    // 🔹 Endpoint del backend del JUEGO, no del de ventas
-    const { data } = await axios.post(`${API_BASE}/reclamar`, {
-      contacto,
-    });
-
-    console.log("[/reclamar] resp:", data);
-
-    if (data.couponIssued && data.coupon?.code) {
-      setCoupon({
-        code: data.coupon.code,
-        expiresAt: data.coupon.expiresAt,
+      setIntentosRestantes((prev) => {
+        const left = prev - 1;
+        if (left === 0 && !data.esGanador) {
+          (async () => {
+            const url = await getNextRedirectUrl();
+            setTimeout(() => window.location.assign(url), 2000);
+          })();
+        }
+        return left;
       });
-    } else {
-      setCouponError(
-        data.couponError ||
-          "No se pudo emitir el cupón automáticamente. Si ya tienes el número ganador, contáctanos para ayudarte."
-      );
-    }
-  } catch (error) {
-    console.error("Error /reclamar:", error);
-    setCouponError("Error de red/servidor al reclamar el premio.");
-  } finally {
-    setIsClaiming(false);
-  }
-};
 
+      if (data.esGanador) {
+        const nameFromBackend =
+          data.prizeName || data.couponName || data.rewardName || null;
+
+        setPrizeName(nameFromBackend);
+        setMensaje("🎉 ¡Ganaste un cupón! 🎉");
+
+        if (data.lockedUntil) {
+          setLockedUntil(data.lockedUntil);
+          setUltimoNumeroGanado(data.numeroGanador);
+        }
+
+        // ✅ reset del estado del reclamo al ganar
+        setCoupon(null);
+        setCouponError(null);
+        setIsClaiming(false);
+        setShowLockModal(false);
+
+        // ✅ limpiar inputs para que no queden datos viejos
+        setContacto("");
+        setNombre("");
+
+        setEsGanador(true); // confetti
+        setModalAbierto(true); // ✅ abrir modal SOLO aquí (sin useEffect duplicado)
+      } else {
+        setMensaje("Sigue intentando 🍀");
+        setShowToast(true);
+      }
+    } catch (error) {
+      const status = error?.response?.status;
+      const resp = error?.response?.data;
+      if (status === 423 && resp?.lockedUntil) {
+        setLockedUntil(resp.lockedUntil);
+        setUltimoNumeroGanado(numeroGanador);
+        setShowLockModal(true);
+      } else {
+        console.error("Error /intentar:", error);
+      }
+    } finally {
+      setIsRolling(false);
+      setTimeout(() => setShowToast(false), 2000);
+    }
+  };
+
+  /* ------------ RECLAMAR CUPÓN --------------- */
+  const reclamarPizza = async () => {
+    const nameTrim = String(nombre || "").trim();
+    const phoneTrim = String(contacto || "").trim();
+
+    if (!nameTrim) return alert("Por favor, ingresa tu nombre.");
+    if (!phoneTrim) return alert("Por favor, ingresa un número de contacto.");
+
+    setIsClaiming(true);
+    setCouponError(null);
+
+    try {
+      const { data } = await axios.post(`${API_BASE}/reclamar`, {
+        contacto: phoneTrim,
+        name: nameTrim,
+        // opcional (si tu backend lo usa):
+        // campaign: `GAME_${GAME_ID}`,
+      });
+
+      console.log("[/reclamar] resp:", data);
+
+      if (data.couponIssued && data.coupon?.code) {
+        setCoupon({
+          code: data.coupon.code,
+          expiresAt: data.coupon.expiresAt,
+        });
+      } else {
+        setCouponError(
+          data.couponError ||
+            "No se pudo emitir el cupón automáticamente. Si ya tienes el número ganador, contáctanos para ayudarte."
+        );
+      }
+    } catch (error) {
+      console.error("Error /reclamar:", error);
+      setCouponError("Error de red/servidor al reclamar el premio.");
+    } finally {
+      setIsClaiming(false);
+    }
+  };
 
   const cerrarModalGanador = () => {
     console.log("[cerrarModalGanador]");
     setModalAbierto(false);
     setEsGanador(false); // apaga confetti
+
+    // ✅ limpia estado del reclamo para evitar arrastrar datos
+    setCoupon(null);
+    setCouponError(null);
+    setIsClaiming(false);
+
     if (lockedUntil && remainingMs > 0) setShowLockModal(true);
   };
 
@@ -340,11 +343,7 @@ const reclamarPizza = async () => {
             <h2 className="pulse-heading">Antes de jugar</h2>
             <p>
               Para participar debes ser mayor de 18 años y aceptar nuestras&nbsp;
-              <a
-                href="/bases.html"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <a href="/bases.html" target="_blank" rel="noopener noreferrer">
                 Bases Legales
               </a>
               &nbsp;y&nbsp;
@@ -444,10 +443,7 @@ const reclamarPizza = async () => {
           onClick={cerrarModalGanador}
           style={{ zIndex: 200000 }}
         >
-          <div
-            className="modal-contenido"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="modal-contenido" onClick={(e) => e.stopPropagation()}>
             <button
               className="modal-close"
               aria-label="Cerrar"
@@ -463,20 +459,31 @@ const reclamarPizza = async () => {
                   🎉 ¡Ganaste un cupón
                   {prizeName ? ` de ${prizeName}` : ""} 🎉
                 </h2>
-                <p>Ingresa tu número de contacto para reclamarlo:</p>
+
+                <p>Ingresa tu nombre y tu número de contacto para reclamarlo:</p>
+
                 <input
                   type="text"
+                  placeholder="Tu nombre"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                />
+
+                <input
+                  type="tel"
                   placeholder="Tu número"
                   value={contacto}
                   onChange={(e) => setContacto(e.target.value)}
                 />
+
                 <button
                   className="boton-reclamar"
                   onClick={reclamarPizza}
-                  disabled={isClaiming}
+                  disabled={isClaiming || !nombre.trim() || !contacto.trim()}
                 >
                   {isClaiming ? "Procesando…" : "Reclamar cupón 🎊"}
                 </button>
+
                 {couponError && (
                   <p style={{ color: "#e63946", marginTop: 12 }}>
                     {couponError}
@@ -499,10 +506,7 @@ const reclamarPizza = async () => {
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(coupon.code);
-                        setTimeout(
-                          () => goToSalesWithCoupon(coupon.code),
-                          80
-                        );
+                        setTimeout(() => goToSalesWithCoupon(coupon.code), 80);
                         alert("Código copiado ✅");
                       } catch {}
                     }}
@@ -522,11 +526,7 @@ const reclamarPizza = async () => {
           <span>
             Usamos cookies para análisis y personalización. Más info en
             nuestra&nbsp;
-            <a
-              href="/cookies.html"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href="/cookies.html" target="_blank" rel="noopener noreferrer">
               Política de Cookies
             </a>
             .
@@ -570,10 +570,7 @@ const reclamarPizza = async () => {
               <FontAwesomeIcon icon={faTiktok} className="icon" />
             </a>
             <a href="tel:694301433" className="call-link" aria-label="Llamar">
-              <FontAwesomeIcon
-                icon={faMobileScreenButton}
-                className="icon"
-              />
+              <FontAwesomeIcon icon={faMobileScreenButton} className="icon" />
             </a>
           </div>
 

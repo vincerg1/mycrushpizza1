@@ -49,9 +49,7 @@ async function withLocalStorageLock(fn, { timeoutMs = 700 } = {}) {
     } catch {
       break;
     }
-    await new Promise((r) =>
-      setTimeout(r, 15 + Math.random() * 35)
-    );
+    await new Promise((r) => setTimeout(r, 15 + Math.random() * 35));
   }
   return await fn();
 }
@@ -61,9 +59,7 @@ async function getNextRedirectUrl() {
   try {
     return await withLocalStorageLock(() => {
       const raw = localStorage.getItem(REDIRECT_SEQ_KEY);
-      const n = Number.isInteger(parseInt(raw, 10))
-        ? parseInt(raw, 10)
-        : 0;
+      const n = Number.isInteger(parseInt(raw, 10)) ? parseInt(raw, 10) : 0;
       const nextUrl = n % 2 === 0 ? TIKTOK_URL : INSTAGRAM_URL;
       localStorage.setItem(REDIRECT_SEQ_KEY, String(n + 1));
       return nextUrl;
@@ -108,12 +104,13 @@ export default function PerfectTimingGame() {
   /* --- Estados para premio/cupón (igual que JuegoPizza) --- */
   const [modalAbierto, setModalAbierto] = useState(false);
   const [contacto, setContacto] = useState("");
+  const [name, setName] = useState(""); // ✅ NUEVO: nombre del cliente
   const [coupon, setCoupon] = useState(null); // { code, expiresAt }
   const [couponError, setCouponError] = useState(null);
   const [isClaiming, setIsClaiming] = useState(false);
   const [prizeName, setPrizeName] = useState(null); // nombre del cupón/premio
 
-  /* ---------------- Bloqueo / countdown (clonado de JuegoPizza) ---------------- */
+  /* ---------------- Bloqueo / countdown ---------------- */
   const [lockedUntil, setLockedUntil] = useState(null); // ISO string
   const [remainingMs, setRemainingMs] = useState(0);
   const [showLockModal, setShowLockModal] = useState(false);
@@ -140,7 +137,7 @@ export default function PerfectTimingGame() {
     } catch {}
   }, []);
 
-  /* ===== CARGA ESTADO DESDE SERVIDOR (como JuegoPizza) ===== */
+  /* ===== CARGA ESTADO DESDE SERVIDOR ===== */
   useEffect(() => {
     if (!API_BASE) return;
     axios
@@ -150,7 +147,6 @@ export default function PerfectTimingGame() {
         console.log("[PTG /perfect/estado]", res.data);
         if (srvLockedUntil) {
           setLockedUntil(srvLockedUntil);
-          // opcional: guardar también en localStorage
           localStorage.setItem(PTG_LOCK_UNTIL_KEY, srvLockedUntil);
           setShowLockModal(true);
         }
@@ -160,7 +156,7 @@ export default function PerfectTimingGame() {
       });
   }, []);
 
-  /* --------- Ticker del countdown (igual patrón que JuegoPizza) --------- */
+  /* --------- Ticker del countdown --------- */
   useEffect(() => {
     if (!lockedUntil) return;
     const untilTs = new Date(lockedUntil).getTime();
@@ -244,27 +240,25 @@ export default function PerfectTimingGame() {
       console.error("ERROR /perfect/attempt →", err);
     }
 
-    // Delta recibido o calculado local
     const localDelta = Math.abs(finalTime - TARGET_MS);
     const effectiveDelta = backendDelta ?? localDelta;
     setDeltaMs(effectiveDelta);
 
-    // Modo real: si backend dice win/lose, usamos eso
-    // si backend no responde bien, fallback al rango local
     const backendHasOpinion = typeof backendWin === "boolean";
-    const isWin = backendHasOpinion
-      ? backendWin
-      : effectiveDelta <= TOLERANCE_MS;
+    const isWin = backendHasOpinion ? backendWin : effectiveDelta <= TOLERANCE_MS;
 
     if (isWin) {
-      // Mostrar modal
       setResult("win");
+
+      // ✅ reset modal fields por si juegan de nuevo
       setPrizeName(null);
       setCoupon(null);
       setCouponError(null);
+      setContacto("");
+      setName("");
+
       setModalAbierto(true);
 
-      // Guardar winId real
       window.__PTG_WIN_ID__ = backendWinId;
       console.log("🏆 GANADOR — winId =", backendWinId);
 
@@ -276,15 +270,25 @@ export default function PerfectTimingGame() {
       setShowLockModal(false);
     } else {
       setResult("lose");
+      // Si se quedó sin intentos → redirigir
+      if (attemptsLeft - 1 <= 0) {
+        (async () => {
+          const url = await getNextRedirectUrl();
+          setTimeout(() => window.location.assign(url), 1500);
+        })();
+      }
     }
 
-    // Restar intento
     setAttemptsLeft((prev) => Math.max(0, prev - 1));
   }
 
   /* ------------ RECLAMAR CUPÓN --------------- */
   const reclamarCupon = async () => {
-    if (!contacto) return alert("Por favor, ingresa un número de contacto.");
+    const contactoTrim = String(contacto || "").trim();
+    const nameTrim = String(name || "").trim();
+
+    if (!nameTrim) return alert("Por favor, ingresa tu nombre.");
+    if (!contactoTrim) return alert("Por favor, ingresa un número de contacto.");
 
     const winId = window.__PTG_WIN_ID__;
     if (!winId) {
@@ -298,7 +302,8 @@ export default function PerfectTimingGame() {
     try {
       const { data } = await axios.post(`${API_BASE}/perfect/claim`, {
         winId,
-        contacto,
+        contacto: contactoTrim,
+        name: nameTrim, // ✅ NUEVO: enviamos el nombre al backend
       });
 
       console.log("[PerfectTime /perfect/claim] resp:", data);
@@ -338,23 +343,18 @@ export default function PerfectTimingGame() {
   };
 
   const displayTime = formatTime(timeMs);
-  const offBySeconds =
-    deltaMs != null ? (deltaMs / 1000).toFixed(2) : null;
+  const offBySeconds = deltaMs != null ? (deltaMs / 1000).toFixed(2) : null;
 
   const botonDeshabilitado =
     (lockedUntil && remainingMs > 0) || (!running && attemptsLeft === 0);
 
   return (
     <div className="container ptg-root">
-      {/* Confetti igual que en JuegoPizza */}
       {result === "win" && (
-        <Confetti
-          numberOfPieces={300}
-          style={{ zIndex: 1, pointerEvents: "none" }}
-        />
+        <Confetti numberOfPieces={300} style={{ zIndex: 1, pointerEvents: "none" }} />
       )}
 
-      {/* --------- MODAL BLOQUEO (countdown) CLONADO --------- */}
+      {/* --------- MODAL BLOQUEO --------- */}
       {showLockModal && lockedUntil && remainingMs > 0 && !modalAbierto && (
         <div className="overlay" style={{ zIndex: 150000 }}>
           <div className="modal-legal lock-modal">
@@ -371,11 +371,7 @@ export default function PerfectTimingGame() {
 
       {/* ====== TARJETA BLANCA: LOGO ====== */}
       <div className="card ptg-header-card">
-        <img
-          src={logo}
-          alt="MyCrushPizza"
-          className="logo logo--in-card"
-        />
+        <img src={logo} alt="MyCrushPizza" className="logo logo--in-card" />
       </div>
 
       {/* ====== CUERPO DEL JUEGO ====== */}
@@ -417,15 +413,13 @@ export default function PerfectTimingGame() {
 
             {result === "win" && (
               <p className="ptg-result ptg-result--win">
-                🎉 Perfect (or almost)! You stopped at{" "}
-                <strong>{displayTime}s</strong>.
+                🎉 Perfect (or almost)! You stopped at <strong>{displayTime}s</strong>.
               </p>
             )}
 
             {result === "lose" && (
               <p className="ptg-result ptg-result--lose">
-                Not this time… You stopped at{" "}
-                <strong>{displayTime}s</strong>{" "}
+                Not this time… You stopped at <strong>{displayTime}s</strong>{" "}
                 {offBySeconds && (
                   <>
                     (off by <strong>{offBySeconds}s</strong>).
@@ -437,7 +431,7 @@ export default function PerfectTimingGame() {
         </main>
       </div>
 
-      {/* --------- MODAL GANADOR / CUPÓN (clon de JuegoPizza) --------- */}
+      {/* --------- MODAL GANADOR / CUPÓN --------- */}
       {modalAbierto && (
         <div
           className="modal"
@@ -446,10 +440,7 @@ export default function PerfectTimingGame() {
           onClick={cerrarModalGanador}
           style={{ zIndex: 200000 }}
         >
-          <div
-            className="modal-contenido"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="modal-contenido" onClick={(e) => e.stopPropagation()}>
             <button
               className="modal-close"
               aria-label="Cerrar"
@@ -462,16 +453,26 @@ export default function PerfectTimingGame() {
             {!coupon ? (
               <>
                 <h2>
-                  🎉 ¡Ganaste un cupón
-                  {prizeName ? ` de ${prizeName}` : ""} 🎉
+                  🎉 ¡Ganaste un cupón{prizeName ? ` de ${prizeName}` : ""} 🎉
                 </h2>
-                <p>Ingresa tu número de contacto para reclamarlo:</p>
+
+                {/* ✅ NUEVO: Nombre */}
+                <p>Ingresa tu nombre y número de contacto para reclamarlo:</p>
+                <input
+                  type="text"
+                  placeholder="Tu nombre"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  style={{ marginBottom: 10 }}
+                />
+
                 <input
                   type="text"
                   placeholder="Tu número"
                   value={contacto}
                   onChange={(e) => setContacto(e.target.value)}
                 />
+
                 <button
                   className="boton-reclamar"
                   onClick={reclamarCupon}
@@ -479,6 +480,7 @@ export default function PerfectTimingGame() {
                 >
                   {isClaiming ? "Procesando…" : "Reclamar cupón 🎊"}
                 </button>
+
                 {couponError && (
                   <p style={{ color: "#e63946", marginTop: 12 }}>
                     {couponError}
@@ -488,10 +490,7 @@ export default function PerfectTimingGame() {
             ) : (
               <>
                 <h2>🎟️ ¡Cupón listo!</h2>
-                <p>
-                  Usa este código en el portal de ventas dentro del tiempo
-                  indicado.
-                </p>
+                <p>Usa este código en el portal de ventas dentro del tiempo indicado.</p>
                 <div className="coupon-code">{coupon.code}</div>
                 <p>Vence: {new Date(coupon.expiresAt).toLocaleString()}</p>
 
@@ -501,10 +500,7 @@ export default function PerfectTimingGame() {
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(coupon.code);
-                        setTimeout(
-                          () => goToSalesWithCoupon(coupon.code),
-                          80
-                        );
+                        setTimeout(() => goToSalesWithCoupon(coupon.code), 80);
                         alert("Código copiado ✅");
                       } catch {}
                     }}
@@ -540,15 +536,8 @@ export default function PerfectTimingGame() {
             >
               <FontAwesomeIcon icon={faTiktok} className="icon" />
             </a>
-            <a
-              href="tel:694301433"
-              className="call-link"
-              aria-label="Llamar"
-            >
-              <FontAwesomeIcon
-                icon={faMobileScreenButton}
-                className="icon"
-              />
+            <a href="tel:694301433" className="call-link" aria-label="Llamar">
+              <FontAwesomeIcon icon={faMobileScreenButton} className="icon" />
             </a>
           </div>
 
@@ -559,27 +548,15 @@ export default function PerfectTimingGame() {
           </p>
 
           <p className="footer__links">
-            <a
-              href="/bases.html"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href="/bases.html" target="_blank" rel="noopener noreferrer">
               Términos y condiciones
             </a>
             ·
-            <a
-              href="/privacidad.html"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href="/privacidad.html" target="_blank" rel="noopener noreferrer">
               Privacidad
             </a>
             ·
-            <a
-              href="/cookies.html"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href="/cookies.html" target="_blank" rel="noopener noreferrer">
               Política de cookies
             </a>
             ·
