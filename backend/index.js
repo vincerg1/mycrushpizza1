@@ -55,7 +55,6 @@ const mailer = (() => {
   const pass   = process.env.SMTP_PASS;
   const from   = process.env.MAIL_FROM || user || 'noreply@local';
   const debug  = process.env.MAIL_DEBUG === '1';
-
   const ts   = () => new Date().toISOString();
   const log  = (...a) => console.log(`[mailer ${ts()}]`, ...a);
   const warn = (...a) => console.warn(`[mailer ${ts()}]`, ...a);
@@ -64,7 +63,6 @@ const mailer = (() => {
     log('desactivado (faltan variables SMTP).');
     return null;
   }
-
   log('config:', {
     host, port, secure, user, from,
     to: (process.env.MAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean),
@@ -96,7 +94,6 @@ const mailer = (() => {
       throw err;
     }
   }
-
   async function notifyWin({ numeroGanador, intento, ip, lockedUntil }) {
     const to = (process.env.MAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean);
     const subject = `🍕 ¡Hay ganador! Nº ${numeroGanador}`;
@@ -115,7 +112,6 @@ Fecha servidor (UTC): ${new Date().toISOString()}`;
     `;
     return send({ to, subject, text, html });
   }
-
   async function notifyClaim({ numeroGanador, contacto, ip, coupon }) {
     const to = (process.env.MAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean);
     const code = coupon?.code || '(no emitido)';
@@ -153,7 +149,6 @@ const cfg = {
   database : process.env.DB_NAME      || process.env.MYSQLDATABASE
 };
 
-// Log sin revelar password completa
 const safe = { ...cfg, password: cfg.password ? '***' + cfg.password.slice(-4) : undefined };
 console.log('🔍 Variables de conexión detectadas:');
 console.table(safe);
@@ -220,12 +215,10 @@ function getClientIp(req) {
   return (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
     .split(',')[0].trim();
 }
-
 async function getWinnerNumber() {
   const [[row]] = await db.query('SELECT numero FROM ganador ORDER BY id DESC LIMIT 1');
   return row ? row.numero : null;
 }
-
 async function getLock() {
   const [[st]] = await db.query('SELECT lock_until FROM juego_estado WHERE id=1');
   return st ? st.lock_until : null;
@@ -236,7 +229,6 @@ async function ptGetLock() {
   );
   return st ? st.lock_until : null;
 }
-
 async function setLock(minutes = LOCK_MINUTES) {
   const [r] = await db.query(
     `UPDATE juego_estado
@@ -247,12 +239,9 @@ async function setLock(minutes = LOCK_MINUTES) {
   );
   return r.affectedRows;
 }
-
 async function clearLock() {
   await db.query('UPDATE juego_estado SET lock_until = NULL WHERE id = 1');
 }
-
-// ↑ FTW: incrementa contador y dice si toca forzar la victoria
 async function bumpAndCheckFTW() {
   if (!FTW_EVERY || FTW_EVERY <= 0) return { hit: false, count: null };
   await db.query('UPDATE juego_estado SET ftw_counter = ftw_counter + 1 WHERE id=1');
@@ -260,8 +249,6 @@ async function bumpAndCheckFTW() {
   const c = Number(row?.ftw_counter || 0);
   return { hit: c > 0 && c % FTW_EVERY === 0, count: c };
 }
-
-// Nota: esta versión asume columna "extra" (JSON) en juego_historial.
 async function logEvent({
   evento,
   intento_valor = null,
@@ -280,9 +267,7 @@ async function logEvent({
     console.warn('⚠️  No se pudo escribir en juego_historial:', e.code || e.message);
   }
 }
-
 /* ---------- Perfect Timing: helpers propios ---------- */
-
 async function ptLogAttempt({ tiempoMs, deltaMs, resultado, ip }) {
   try {
     await db.query(
@@ -297,7 +282,6 @@ async function ptLogAttempt({ tiempoMs, deltaMs, resultado, ip }) {
     );
   }
 }
-
 async function ptInsertWinner({ tiempoMs, deltaMs }) {
   const [r] = await db.query(
     `INSERT INTO perfect_timing_ganador (tiempo_ms, delta_ms, reclamado)
@@ -306,7 +290,6 @@ async function ptInsertWinner({ tiempoMs, deltaMs }) {
   );
   return r.insertId; // id del registro de ganador
 }
-
 async function ptGetWinnerById(id) {
   const [[row]] = await db.query(
     `SELECT id, tiempo_ms, delta_ms, contacto, reclamado, entregado
@@ -316,7 +299,6 @@ async function ptGetWinnerById(id) {
   );
   return row || null;
 }
-
 /* ---------- 🔗 VENTAS: cliente HTTP JSON + idempotencia ---------- */
 function getJson(urlStr, headers = {}) {
   return new Promise((resolve, reject) => {
@@ -355,7 +337,6 @@ function getJson(urlStr, headers = {}) {
     req.end();
   });
 }
-
 function postJson(urlStr, payload, headers = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(urlStr);
@@ -389,7 +370,6 @@ function postJson(urlStr, payload, headers = {}) {
     req.end();
   });
 }
-
 function salesUrl(pathname) {
   const base = SALES.base.replace(/\/+$/, '');
   const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
@@ -403,7 +383,6 @@ function startServer () {
   app.use(cors());
   app.use(express.json());
 
-  /* ====== Galería / cupones directos ====== */
 
   app.get('/game/coupons-gallery', async (req, res) => {
     if (!salesEnabled) {
@@ -428,7 +407,6 @@ function startServer () {
         .json({ error: 'Failed to fetch coupons gallery from sales backend' });
     }
   });
-
   app.post('/game/direct-claim', async (req, res) => {
     if (!salesEnabled) {
       return res
@@ -527,13 +505,9 @@ function startServer () {
       });
     }
   });
-
-  /* ====== Rutas básicas del juego Número Ganador ====== */
-
   app.get('/', async (_, res) =>
     res.send(`Servidor funcionando correctamente 🚀 (${new Date().toISOString()})`)
   );
-
   app.get('/estado', async (_, res) => {
     try {
       const numeroGanador = await getWinnerNumber();
@@ -541,7 +515,6 @@ function startServer () {
       res.json({ numeroGanador, lockedUntil, now: new Date().toISOString() });
     } catch (e) { res.status(500).json(e); }
   });
-
   app.get('/perfect/estado', async (_, res) => {
     try {
       const lockedUntil = await ptGetLock();
@@ -550,7 +523,6 @@ function startServer () {
       res.status(500).json(e);
     }
   });
-
   app.get('/lista-ganadores', async (_, res) => {
     try {
       const [rows] = await db.query(
@@ -563,7 +535,6 @@ function startServer () {
       res.json(rows);
     } catch (e) { res.status(500).json(e); }
   });
-
   app.get('/verificar/:numero', async (req, res) => {
     const { numero } = req.params;
     try {
@@ -579,7 +550,6 @@ function startServer () {
       res.json(rows[0]);
     } catch (e) { res.status(500).json(e); }
   });
-
   app.get('/ganador', async (_, res) => {
     try {
       const numeroGanador = await getWinnerNumber();
@@ -588,7 +558,6 @@ function startServer () {
       res.json({ numeroGanador });
     } catch (e) { res.status(500).json(e); }
   });
-
   app.post('/generar-ganador', async (_, res) => {
     const n = Math.floor(Math.random() * 900) + 100; // 100-999
     try {
@@ -596,7 +565,6 @@ function startServer () {
       res.json({ message: 'Número ganador generado 🎉', numeroGanador: n });
     } catch (e) { res.status(500).json(e); }
   });
-
   app.post('/intentar', async (req, res) => {
     const ip = getClientIp(req);
 
@@ -674,28 +642,39 @@ function startServer () {
       res.status(500).json(e);
     }
   });
-
   app.post('/reclamar', async (req, res) => {
-    const { contacto, campaign } = req.body; // opcionales
+    const { contacto, name, campaign } = req.body || {};
     const ip = getClientIp(req);
 
+    const contactoTrim = String(contacto || '').trim();
+    const nameTrim = String(name || '').trim();
+
     try {
+      if (!contactoTrim) {
+        return res.status(400).json({ ok: false, error: 'missing_contacto' });
+      }
+      if (!nameTrim) {
+        return res.status(400).json({ ok: false, error: 'missing_name' });
+      }
+
       // último ganador no reclamado
       const [[g]] = await db.query(
         'SELECT id, numero FROM ganador WHERE reclamado = 0 ORDER BY id DESC LIMIT 1'
       );
       if (!g) {
-        return res.status(400).json({ message: 'No hay número ganador activo para reclamar' });
+        return res
+          .status(400)
+          .json({ ok: false, message: 'No hay número ganador activo para reclamar' });
       }
 
-      // marcar reclamo
+      // marcar reclamo (en tu tabla del juego guardas el contacto; el nombre lo guardas en logs "extra")
       await db.query(
         `UPDATE ganador
             SET reclamado = 1,
                 contacto = ?,
                 reclamado_en = CURRENT_TIMESTAMP
           WHERE id = ?`,
-        [contacto || null, g.id]
+        [contactoTrim, g.id]
       );
 
       await logEvent({
@@ -703,25 +682,29 @@ function startServer () {
         resultado: 'ok',
         numero_ganador: g.numero,
         ip,
-        extra: { contacto: contacto || null }
+        extra: { contacto: contactoTrim, name: nameTrim }
       });
 
-      /* ---------- 🔗 VENTAS: emitir cupón desde pool del juego ---------- */
       let couponResp = null;
-      let couponErr  = null;
+      let couponErr = null;
 
       if (salesEnabled) {
         const gameId = NG_GAME_ID;
-        const url    = salesUrl(`/api/coupons/games/${gameId}/issue`);
-        const idem   = `claim-${g.id}`;
+        const url = salesUrl(`/api/coupons/games/${gameId}/issue`);
+        const idem = `claim-${g.id}`;
         const hoursForCoupon =
           Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
 
-        // payload aceptado por el backend de Ventas
+        // ✅ Payload compatible con Ventas
+        // - origin: usar SOLO valores válidos del enum (ej: "QR" o "PHONE")
+        // - portal: tag libre tipo "GAME_1"
         const payload = {
           hours: hoursForCoupon,
-          contact: contacto || undefined,        // SMS opcional en Ventas
-          gameNumber: g.numero,                  // contexto
+          contact: contactoTrim,
+          name: nameTrim,
+          origin: 'QR',                 // ✅ (válido) o "PHONE"
+          portal: `GAME_${gameId}`,     // ✅ aquí taggeas el juego
+          gameNumber: g.numero,
           campaign: campaign || process.env.GAME_CAMPAIGN || undefined
         };
 
@@ -737,7 +720,7 @@ function startServer () {
             resultado: 'ok',
             numero_ganador: g.numero,
             ip,
-            extra: { idem, returned: couponResp }
+            extra: { idem, sent: payload, returned: couponResp }
           });
         } catch (err) {
           couponErr = err?.message || String(err);
@@ -748,47 +731,50 @@ function startServer () {
             resultado: 'fail',
             numero_ganador: g.numero,
             ip,
-            extra: { idem, error: couponErr }
+            extra: { idem, sent: payload, error: couponErr }
           });
         }
       } else {
         console.log('ℹ️  Integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).');
       }
 
-      // ✉️ Email a admin con los datos del reclamo
       if (mailer) {
-        const couponForEmail = couponResp && {
-          code:      couponResp.code || couponResp.coupon?.code || null,
-          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
-        };
-        mailer.notifyClaim({
-          numeroGanador: g.numero,
-          contacto: contacto || null,
-          ip,
-          coupon: couponForEmail
-        }).catch(err => console.warn('[claim][email] error:', err?.message || err));
+        const couponForEmail =
+          couponResp && {
+            code: couponResp.code || couponResp.coupon?.code || null,
+            expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
+          };
+
+        mailer
+          .notifyClaim({
+            numeroGanador: g.numero,
+            contacto: contactoTrim,
+            ip,
+            coupon: couponForEmail
+          })
+          .catch((err) => console.warn('[claim][email] error:', err?.message || err));
       }
 
-      // generar nuevo número para la siguiente ronda
       const nuevo = Math.floor(Math.random() * 900) + 100;
       await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [nuevo]);
 
-      res.json({
+      return res.json({
+        ok: true,
         message: 'Premio reclamado y nuevo número generado 🎊',
         nuevoNumeroGanador: nuevo,
         couponIssued: !!couponResp,
-        coupon: couponResp && {
-          code: couponResp.code || couponResp.coupon?.code || null,
-          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
-        },
+        coupon:
+          couponResp && {
+            code: couponResp.code || couponResp.coupon?.code || null,
+            expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
+          },
         couponError: couponErr
       });
     } catch (e) {
       console.warn('[reclamar] error:', e?.message || e);
-      res.status(500).json(e);
+      return res.status(500).json({ ok: false, error: 'internal' });
     }
   });
-
   app.post('/actualizar-entrega', async (req, res) => {
     const { numero } = req.body;
     try {
@@ -796,8 +782,6 @@ function startServer () {
       res.json({ message: 'Premio marcado como entregado ✔' });
     } catch (e) { res.status(500).json(e); }
   });
-
-  /* ====== Rutas DEV ====== */
 
   if (NODE_ENV !== 'production') {
     app.post('/__dev__/unlock', async (_, res) => {
@@ -849,13 +833,24 @@ function startServer () {
     deltaMs: delta,
     winId
   });
-});
+  });
   app.post('/perfect/claim', async (req, res) => {
     const ip = getClientIp(req);
-    const { winId, contacto, campaign } = req.body || {};
+    const { winId, contacto, name, campaign } = req.body || {};
+
+    const contactoTrim = String(contacto || '').trim();
+    const nameTrim = String(name || '').trim();
 
     if (!winId) {
       return res.status(400).json({ ok: false, error: 'missing_win_id' });
+    }
+
+    // ✅ obligatorios para no crear customer.name = null
+    if (!nameTrim) {
+      return res.status(400).json({ ok: false, error: 'missing_name' });
+    }
+    if (!contactoTrim) {
+      return res.status(400).json({ ok: false, error: 'missing_contact' });
     }
 
     // 1) Buscar ganador no reclamado
@@ -878,7 +873,7 @@ function startServer () {
               contacto = ?,
               reclamado_en = CURRENT_TIMESTAMP
         WHERE id = ?`,
-      [contacto || null, row.id]
+      [contactoTrim, row.id]
     );
 
     /* ---------- Emisión de cupón opcional (GameId=PT_GAME_ID) ---------- */
@@ -892,9 +887,11 @@ function startServer () {
       const hoursForCoupon =
         Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
 
+      // ✅ IMPORTANTE: enviamos también name para que Ventas guarde customer.name
       const payload = {
         hours: hoursForCoupon,
-        contact: contacto || undefined,
+        contact: contactoTrim,   // ✅ ya validado
+        name: nameTrim,          // ✅ NUEVO
         gameNumber: row.tiempo_ms,
         campaign: campaign || process.env.PT_GAME_CAMPAIGN || undefined
       };
