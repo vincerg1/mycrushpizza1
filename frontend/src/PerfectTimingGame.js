@@ -9,16 +9,15 @@ import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 import axios from "axios";
 import Confetti from "react-confetti";
 
-const TARGET_MS = 9990; // 9,99 s
-const TOLERANCE_MS = 40; // margen de acierto (40 ms ≈ 0,04 s)
-const MAX_ATTEMPTS = 10;
+const TARGET_MS = 9990;
+const TOLERANCE_MS = 40;
+const MAX_ATTEMPTS = 3;
 
 /* ========= Backend del juego ========= */
 const API_BASE = (process.env.REACT_APP_BACKEND_URL || "").replace(/\/+$/, "");
 
 /* ========= Redirecciones (mismo esquema que JuegoPizza) ========= */
-const TIKTOK_URL =
-  "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
+const TIKTOK_URL = "https://www.tiktok.com/@luigiroppo?_t=ZN-8whjKa8Moxq&_r=1";
 const INSTAGRAM_URL = "https://www.mycrushpizza.com/venta";
 
 const REDIRECT_SEQ_KEY = "mcp_redirect_seq";
@@ -26,7 +25,7 @@ const REDIRECT_LOCK_KEY = "mcp_redirect_lock";
 
 /* Bloqueo local del juego (por dispositivo) */
 const PTG_LOCK_UNTIL_KEY = "mcp_ptg_locked_until"; // ISO de cuándo termina el bloqueo
-const PTG_LOCK_MINUTES = 10;
+const PTG_LOCK_MINUTES = 1440;
 
 /** Lock ligero con localStorage para serializar escrituras entre pestañas */
 async function withLocalStorageLock(fn, { timeoutMs = 700 } = {}) {
@@ -104,11 +103,11 @@ export default function PerfectTimingGame() {
   /* --- Estados para premio/cupón (igual que JuegoPizza) --- */
   const [modalAbierto, setModalAbierto] = useState(false);
   const [contacto, setContacto] = useState("");
-  const [name, setName] = useState(""); // ✅ NUEVO: nombre del cliente
+  const [name, setName] = useState("");
   const [coupon, setCoupon] = useState(null); // { code, expiresAt }
   const [couponError, setCouponError] = useState(null);
   const [isClaiming, setIsClaiming] = useState(false);
-  const [prizeName, setPrizeName] = useState(null); // nombre del cupón/premio
+  const [prizeName, setPrizeName] = useState(null);
 
   /* ---------------- Bloqueo / countdown ---------------- */
   const [lockedUntil, setLockedUntil] = useState(null); // ISO string
@@ -222,35 +221,30 @@ export default function PerfectTimingGame() {
 
     const finalTime = timeMs;
 
-    let backendWin = null;
+    // Pedimos al backend para LOG + winId (si lo crea), pero NO usamos data.isWin para decidir UI
     let backendWinId = null;
-    let backendDelta = null;
 
     try {
       const { data } = await axios.post(`${API_BASE}/perfect/attempt`, {
         timeMs: finalTime,
       });
 
-      backendWin = data.isWin;
       backendWinId = data.winId;
-      backendDelta = data.deltaMs;
-
       console.log("🎯 [/perfect/attempt] →", data);
     } catch (err) {
       console.error("ERROR /perfect/attempt →", err);
     }
 
+    // ✅ MODO REAL: la UI decide SOLO por delta local (ignora data.isWin)
     const localDelta = Math.abs(finalTime - TARGET_MS);
-    const effectiveDelta = backendDelta ?? localDelta;
-    setDeltaMs(effectiveDelta);
+    setDeltaMs(localDelta);
 
-    const backendHasOpinion = typeof backendWin === "boolean";
-    const isWin = backendHasOpinion ? backendWin : effectiveDelta <= TOLERANCE_MS;
+    const isWin = localDelta <= TOLERANCE_MS;
 
     if (isWin) {
       setResult("win");
 
-      // ✅ reset modal fields por si juegan de nuevo
+      // reset modal fields por si juegan de nuevo
       setPrizeName(null);
       setCoupon(null);
       setCouponError(null);
@@ -259,6 +253,7 @@ export default function PerfectTimingGame() {
 
       setModalAbierto(true);
 
+      // guardamos winId si existe (si backend lo generó)
       window.__PTG_WIN_ID__ = backendWinId;
       console.log("🏆 GANADOR — winId =", backendWinId);
 
@@ -303,7 +298,7 @@ export default function PerfectTimingGame() {
       const { data } = await axios.post(`${API_BASE}/perfect/claim`, {
         winId,
         contacto: contactoTrim,
-        name: nameTrim, // ✅ NUEVO: enviamos el nombre al backend
+        name: nameTrim,
       });
 
       console.log("[PerfectTime /perfect/claim] resp:", data);
@@ -315,10 +310,7 @@ export default function PerfectTimingGame() {
         });
 
         setPrizeName(
-          data.coupon?.name ||
-            data.prizeName ||
-            data.couponName ||
-            prizeName
+          data.coupon?.name || data.prizeName || data.couponName || prizeName
         );
       } else {
         setCouponError(
@@ -351,7 +343,10 @@ export default function PerfectTimingGame() {
   return (
     <div className="container ptg-root">
       {result === "win" && (
-        <Confetti numberOfPieces={300} style={{ zIndex: 1, pointerEvents: "none" }} />
+        <Confetti
+          numberOfPieces={300}
+          style={{ zIndex: 1, pointerEvents: "none" }}
+        />
       )}
 
       {/* --------- MODAL BLOQUEO --------- */}
@@ -413,7 +408,8 @@ export default function PerfectTimingGame() {
 
             {result === "win" && (
               <p className="ptg-result ptg-result--win">
-                🎉 Perfect (or almost)! You stopped at <strong>{displayTime}s</strong>.
+                🎉 Perfect (or almost)! You stopped at{" "}
+                <strong>{displayTime}s</strong>.
               </p>
             )}
 
@@ -456,7 +452,6 @@ export default function PerfectTimingGame() {
                   🎉 ¡Ganaste un cupón{prizeName ? ` de ${prizeName}` : ""} 🎉
                 </h2>
 
-                {/* ✅ NUEVO: Nombre */}
                 <p>Ingresa tu nombre y número de contacto para reclamarlo:</p>
                 <input
                   type="text"
@@ -490,7 +485,10 @@ export default function PerfectTimingGame() {
             ) : (
               <>
                 <h2>🎟️ ¡Cupón listo!</h2>
-                <p>Usa este código en el portal de ventas dentro del tiempo indicado.</p>
+                <p>
+                  Usa este código en el portal de ventas dentro del tiempo
+                  indicado.
+                </p>
                 <div className="coupon-code">{coupon.code}</div>
                 <p>Vence: {new Date(coupon.expiresAt).toLocaleString()}</p>
 
