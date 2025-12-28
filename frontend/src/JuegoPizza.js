@@ -84,6 +84,7 @@ export default function JuegoPizza() {
   const [nombre, setNombre] = useState("");
   const [contacto, setContacto] = useState("");
 
+  // ✅ shake para el botón cuando fallas
   const [shakeGanador, setShakeGanador] = useState(false);
 
   /* --- Estados para el cupón --- */
@@ -256,10 +257,14 @@ export default function JuegoPizza() {
         setNombre("");
 
         setEsGanador(true); // confetti
-        setModalAbierto(true); // ✅ abrir modal SOLO aquí (sin useEffect duplicado)
+        setModalAbierto(true); // ✅ abrir modal SOLO aquí
       } else {
         setMensaje("Sigue intentando 🍀");
         setShowToast(true);
+
+        // ✅ SHAKE divertido cuando no ganas
+        setShakeGanador(true);
+        setTimeout(() => setShakeGanador(false), 520);
       }
     } catch (error) {
       const status = error?.response?.status;
@@ -292,7 +297,6 @@ export default function JuegoPizza() {
       const { data } = await axios.post(`${API_BASE}/reclamar`, {
         contacto: phoneTrim,
         name: nameTrim,
-        // opcional (si tu backend lo usa):
         // campaign: `GAME_${GAME_ID}`,
       });
 
@@ -398,7 +402,7 @@ export default function JuegoPizza() {
       <div className="card">
         <img src={logo} alt="MyCrushPizza" className="logo logo--in-card" />
         {numeroGanador !== null && (
-          <div className={`numero-ganador ${shakeGanador ? "shake" : ""}`}>
+          <div className="numero-ganador">
             <h2 className="winner-title">NÚMERO GANADOR</h2>
             <div className="numero-casillas">
               {numeroGanador
@@ -416,7 +420,7 @@ export default function JuegoPizza() {
       </div>
 
       <button
-        className="boton-intentar shine-button"
+        className={`boton-intentar shine-button ${shakeGanador ? "shake" : ""}`}
         onClick={intentarGanar}
         disabled={botonDeshabilitado}
       >
