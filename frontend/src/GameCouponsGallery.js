@@ -43,7 +43,6 @@ async function fetchCouponsGallery() {
   console.log("[GameCouponsGallery] Gallery response:", json);
   return json;
 }
-
 async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
   if (!BACKEND_BASE) {
     throw new Error("REACT_APP_BACKEND_URL is not configured");
