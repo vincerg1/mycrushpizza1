@@ -1,15 +1,4 @@
-/*****************************************************************
- *  myCrushPizza – Backend (bloqueo + historial)
- *  – Pool con keep-alive
- *  – Ping preventivo cada 5 min
- *  – Logging sin exponer la contraseña
- *  – Bloqueo global del juego tras ganar
- *  – 🔗 Emisión de cupón FP en proyecto "ventas" al reclamar premio
- *  – ✉️ Emails con logs: al ganar y al reclamar
- *  – 🎯 FTW_EVERY: fuerza la victoria cada N intentos (persistente en BD)
- *  – 🎯 Perfect Timing (Game #2) con cupones propios
- *****************************************************************/
-
+import { normalizePhoneES } from './utils/phone.js';
 require('dotenv').config();
 const express     = require('express');
 const cors        = require('cors');
@@ -407,103 +396,110 @@ function startServer () {
         .json({ error: 'Failed to fetch coupons gallery from sales backend' });
     }
   });
-  app.post('/game/direct-claim', async (req, res) => {
-    if (!salesEnabled) {
-      return res
-        .status(503)
-        .json({ ok: false, error: 'sales_disabled' });
-    }
+ app.post('/game/direct-claim', async (req, res) => {
+  if (!salesEnabled) {
+    return res
+      .status(503)
+      .json({ ok: false, error: 'sales_disabled' });
+  }
 
-    const ip = getClientIp(req);
-    const {
-      phone,
-      name,
-      type,
-      key,
-      hours,
-      campaign
-    } = req.body || {};
+  const ip = getClientIp(req);
 
-    const phoneRaw = String(phone || '').trim();
+  const {
+    phone: phoneInput,
+    name,
+    type,
+    key,
+    hours,
+    campaign
+  } = req.body || {};
 
-    if (!phoneRaw || !type || !key) {
-      return res.json({
-        ok: false,
-        error: 'missing_params',
-        details: { phone: !!phoneRaw, type: !!type, key: !!key }
-      });
-    }
+  // 🔥 Normalizamos el teléfono SIEMPRE
+  const phone = normalizePhoneES(phoneInput);
 
-    // payload que enviamos al backend de Ventas
-    const payload = {
-      phone: phoneRaw,
-      name: name ? String(name).trim() : undefined,
-      type,
-      key,
-      ...(hours != null ? { hours } : {}),
-      ...(campaign != null ? { campaign } : {}),
-      ...(SALES.tenant ? { tenant: SALES.tenant } : {})
-    };
+  if (!phone || !type || !key) {
+    return res.json({
+      ok: false,
+      error: 'missing_params',
+      details: {
+        phone: !!phone,
+        type: !!type,
+        key: !!key
+      }
+    });
+  }
 
-    // ⚠️ IMPORTANTE: ruta real del backend de Ventas
-    const url = salesUrl('/api/coupons/direct-claim');
+  // payload que enviamos al backend de Ventas
+  const payload = {
+    phone, // ← YA normalizado (+34XXXXXXXXX)
+    name: name ? String(name).trim() : undefined,
+    type,
+    key,
+    ...(hours != null ? { hours } : {}),
+    ...(campaign != null ? { campaign } : {}),
+    ...(SALES.tenant ? { tenant: SALES.tenant } : {})
+  };
 
-    console.log('[game/direct-claim] → POST', url, 'payload:', payload);
+  // ⚠️ IMPORTANTE: ruta real del backend de Ventas
+  const url = salesUrl('/api/coupons/direct-claim');
 
+  console.log('[game/direct-claim] → POST', url, 'payload:', payload);
+
+  try {
+    const { data } = await postJson(url, payload, {
+      'x-api-key': SALES.key
+    });
+
+    console.log('[game/direct-claim] ← response from sales:', data);
+
+    // log opcional en el histórico del juego
     try {
-      const { data } = await postJson(url, payload, {
-        'x-api-key': SALES.key
-      });
-
-      console.log('[game/direct-claim] ← response from sales:', data);
-
-      // log opcional en el histórico del juego
-      try {
-        await logEvent({
-          evento: 'direct_claim',
-          resultado: data?.ok ? 'ok' : 'fail',
-          numero_ganador: null,
-          ip,
-          extra: {
-            type,
-            key,
-            phone: phoneRaw,
-            backend: data
-          }
-        });
-      } catch (_) {
-        // si falla el log, no rompemos la respuesta al usuario
-      }
-
-      // devolvemos tal cual (data.ok true/false)
-      return res.json(data || { ok: false, error: 'empty_response' });
-    } catch (err) {
-      const msg = err?.message || '';
-      let parsed = null;
-
-      const idx = msg.indexOf('{');
-      if (idx !== -1) {
-        try {
-          parsed = JSON.parse(msg.slice(idx));
-        } catch (_) {
-          parsed = null;
+      await logEvent({
+        evento: 'direct_claim',
+        resultado: data?.ok ? 'ok' : 'fail',
+        numero_ganador: null,
+        ip,
+        extra: {
+          type,
+          key,
+          phone,     // 👈 usamos el normalizado
+          backend: data
         }
-      }
-
-      if (parsed && typeof parsed === 'object') {
-        console.warn('[game/direct-claim] upstream error (parsed JSON):', parsed);
-        // Normalizamos a 200 para que el front siempre reciba JSON {ok:false,...}
-        return res.json(parsed);
-      }
-
-      console.warn('[game/direct-claim] upstream error (raw):', msg);
-
-      return res.status(502).json({
-        ok: false,
-        error: 'upstream_error',
-        message: msg
       });
+    } catch (_) {
+      // si falla el log, no rompemos la respuesta al usuario
     }
+
+    // devolvemos tal cual (data.ok true/false)
+    return res.json(data || { ok: false, error: 'empty_response' });
+
+  } catch (err) {
+    const msg = err?.message || '';
+    let parsed = null;
+
+    const idx = msg.indexOf('{');
+    if (idx !== -1) {
+      try {
+        parsed = JSON.parse(msg.slice(idx));
+      } catch (_) {
+        parsed = null;
+      }
+    }
+
+    if (parsed && typeof parsed === 'object') {
+      console.warn('[game/direct-claim] upstream error (parsed JSON):', parsed);
+      // Normalizamos a 200 para que el front siempre reciba JSON {ok:false,...}
+      return res.json(parsed);
+    }
+
+    console.warn('[game/direct-claim] upstream error (raw):', msg);
+
+    return res.status(502).json({
+      ok: false,
+      error: 'upstream_error',
+      message: msg
+    });
+  }
   });
   app.get('/', async (_, res) =>
     res.send(`Servidor funcionando correctamente 🚀 (${new Date().toISOString()})`)
@@ -643,137 +639,137 @@ function startServer () {
     }
   });
   app.post('/reclamar', async (req, res) => {
-    const { contacto, name, campaign } = req.body || {};
-    const ip = getClientIp(req);
+  const { contacto, name, campaign } = req.body || {};
+  const ip = getClientIp(req);
 
-    const contactoTrim = String(contacto || '').trim();
-    const nameTrim = String(name || '').trim();
+  const nameTrim = String(name || '').trim();
 
-    try {
-      if (!contactoTrim) {
-        return res.status(400).json({ ok: false, error: 'missing_contacto' });
+  // 🔥 Normalizamos SIEMPRE el teléfono
+  const phone = normalizePhoneES(contacto);
+
+  try {
+    if (!phone) {
+      return res.status(400).json({ ok: false, error: 'invalid_phone' });
+    }
+    if (!nameTrim) {
+      return res.status(400).json({ ok: false, error: 'missing_name' });
+    }
+
+    // último ganador no reclamado
+    const [[g]] = await db.query(
+      'SELECT id, numero FROM ganador WHERE reclamado = 0 ORDER BY id DESC LIMIT 1'
+    );
+    if (!g) {
+      return res
+        .status(400)
+        .json({ ok: false, message: 'No hay número ganador activo para reclamar' });
+    }
+
+    // marcar reclamo (guardamos SIEMPRE el teléfono normalizado)
+    await db.query(
+      `UPDATE ganador
+          SET reclamado = 1,
+              contacto = ?,
+              reclamado_en = CURRENT_TIMESTAMP
+        WHERE id = ?`,
+      [phone, g.id]
+    );
+
+    await logEvent({
+      evento: 'claim',
+      resultado: 'ok',
+      numero_ganador: g.numero,
+      ip,
+      extra: { phone, name: nameTrim }
+    });
+
+    let couponResp = null;
+    let couponErr = null;
+
+    if (salesEnabled) {
+      const gameId = NG_GAME_ID;
+      const url = salesUrl(`/api/coupons/games/${gameId}/issue`);
+      const idem = `claim-${g.id}`;
+      const hoursForCoupon =
+        Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
+
+      // ✅ Payload limpio y consistente para Ventas
+      const payload = {
+        hours: hoursForCoupon,
+        contact: phone,           // 👈 YA normalizado
+        name: nameTrim,
+        origin: 'QR',
+        portal: `GAME_${gameId}`,
+        gameNumber: g.numero,
+        campaign: campaign || process.env.GAME_CAMPAIGN || undefined
+      };
+
+      try {
+        const { data } = await postJson(url, payload, {
+          'x-api-key': SALES.key,
+          'x-idempotency-key': idem
+        });
+        couponResp = data || null;
+
+        await logEvent({
+          evento: 'coupon_issue',
+          resultado: 'ok',
+          numero_ganador: g.numero,
+          ip,
+          extra: { idem, sent: payload, returned: couponResp }
+        });
+      } catch (err) {
+        couponErr = err?.message || String(err);
+        console.warn('⚠️  Emisión de cupón (pool juego) falló:', couponErr);
+
+        await logEvent({
+          evento: 'coupon_issue',
+          resultado: 'fail',
+          numero_ganador: g.numero,
+          ip,
+          extra: { idem, sent: payload, error: couponErr }
+        });
       }
-      if (!nameTrim) {
-        return res.status(400).json({ ok: false, error: 'missing_name' });
-      }
+    } else {
+      console.log('ℹ️  Integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).');
+    }
 
-      // último ganador no reclamado
-      const [[g]] = await db.query(
-        'SELECT id, numero FROM ganador WHERE reclamado = 0 ORDER BY id DESC LIMIT 1'
-      );
-      if (!g) {
-        return res
-          .status(400)
-          .json({ ok: false, message: 'No hay número ganador activo para reclamar' });
-      }
-
-      // marcar reclamo (en tu tabla del juego guardas el contacto; el nombre lo guardas en logs "extra")
-      await db.query(
-        `UPDATE ganador
-            SET reclamado = 1,
-                contacto = ?,
-                reclamado_en = CURRENT_TIMESTAMP
-          WHERE id = ?`,
-        [contactoTrim, g.id]
-      );
-
-      await logEvent({
-        evento: 'claim',
-        resultado: 'ok',
-        numero_ganador: g.numero,
-        ip,
-        extra: { contacto: contactoTrim, name: nameTrim }
-      });
-
-      let couponResp = null;
-      let couponErr = null;
-
-      if (salesEnabled) {
-        const gameId = NG_GAME_ID;
-        const url = salesUrl(`/api/coupons/games/${gameId}/issue`);
-        const idem = `claim-${g.id}`;
-        const hoursForCoupon =
-          Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
-
-        // ✅ Payload compatible con Ventas
-        // - origin: usar SOLO valores válidos del enum (ej: "QR" o "PHONE")
-        // - portal: tag libre tipo "GAME_1"
-        const payload = {
-          hours: hoursForCoupon,
-          contact: contactoTrim,
-          name: nameTrim,
-          origin: 'QR',                 // ✅ (válido) o "PHONE"
-          portal: `GAME_${gameId}`,     // ✅ aquí taggeas el juego
-          gameNumber: g.numero,
-          campaign: campaign || process.env.GAME_CAMPAIGN || undefined
+    if (mailer) {
+      const couponForEmail =
+        couponResp && {
+          code: couponResp.code || couponResp.coupon?.code || null,
+          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
         };
 
-        try {
-          const { data } = await postJson(url, payload, {
-            'x-api-key': SALES.key,
-            'x-idempotency-key': idem
-          });
-          couponResp = data || null;
-
-          await logEvent({
-            evento: 'coupon_issue',
-            resultado: 'ok',
-            numero_ganador: g.numero,
-            ip,
-            extra: { idem, sent: payload, returned: couponResp }
-          });
-        } catch (err) {
-          couponErr = err?.message || String(err);
-          console.warn('⚠️  Emisión de cupón (pool juego) falló:', couponErr);
-
-          await logEvent({
-            evento: 'coupon_issue',
-            resultado: 'fail',
-            numero_ganador: g.numero,
-            ip,
-            extra: { idem, sent: payload, error: couponErr }
-          });
-        }
-      } else {
-        console.log('ℹ️  Integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).');
-      }
-
-      if (mailer) {
-        const couponForEmail =
-          couponResp && {
-            code: couponResp.code || couponResp.coupon?.code || null,
-            expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
-          };
-
-        mailer
-          .notifyClaim({
-            numeroGanador: g.numero,
-            contacto: contactoTrim,
-            ip,
-            coupon: couponForEmail
-          })
-          .catch((err) => console.warn('[claim][email] error:', err?.message || err));
-      }
-
-      const nuevo = Math.floor(Math.random() * 900) + 100;
-      await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [nuevo]);
-
-      return res.json({
-        ok: true,
-        message: 'Premio reclamado y nuevo número generado 🎊',
-        nuevoNumeroGanador: nuevo,
-        couponIssued: !!couponResp,
-        coupon:
-          couponResp && {
-            code: couponResp.code || couponResp.coupon?.code || null,
-            expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
-          },
-        couponError: couponErr
-      });
-    } catch (e) {
-      console.warn('[reclamar] error:', e?.message || e);
-      return res.status(500).json({ ok: false, error: 'internal' });
+      mailer
+        .notifyClaim({
+          numeroGanador: g.numero,
+          contacto: phone,    // 👈 usamos el normalizado
+          ip,
+          coupon: couponForEmail
+        })
+        .catch((err) => console.warn('[claim][email] error:', err?.message || err));
     }
+
+    const nuevo = Math.floor(Math.random() * 900) + 100;
+    await db.query('INSERT INTO ganador (numero, reclamado) VALUES (?, 0)', [nuevo]);
+
+    return res.json({
+      ok: true,
+      message: 'Premio reclamado y nuevo número generado 🎊',
+      nuevoNumeroGanador: nuevo,
+      couponIssued: !!couponResp,
+      coupon:
+        couponResp && {
+          code: couponResp.code || couponResp.coupon?.code || null,
+          expiresAt: couponResp.expiresAt || couponResp.coupon?.expiresAt || null
+        },
+      couponError: couponErr
+    });
+  } catch (e) {
+    console.warn('[reclamar] error:', e?.message || e);
+    return res.status(500).json({ ok: false, error: 'internal' });
+  }
   });
   app.post('/actualizar-entrega', async (req, res) => {
     const { numero } = req.body;
@@ -782,7 +778,6 @@ function startServer () {
       res.json({ message: 'Premio marcado como entregado ✔' });
     } catch (e) { res.status(500).json(e); }
   });
-
   if (NODE_ENV !== 'production') {
     app.post('/__dev__/unlock', async (_, res) => {
       await clearLock();
@@ -802,7 +797,6 @@ function startServer () {
 
     console.log(`🧪 Modo prueba FORCE_WIN=${FORCE_WIN ? 'ON' : 'OFF'} | FTW_EVERY=${FTW_EVERY}`);
   }
-
   app.post('/perfect/attempt', async (req, res) => {
   const ip = getClientIp(req);
   const { timeMs } = req.body || {};
@@ -834,103 +828,109 @@ function startServer () {
     winId
   });
   });
-  app.post('/perfect/claim', async (req, res) => {
-    const ip = getClientIp(req);
-    const { winId, contacto, name, campaign } = req.body || {};
+app.post('/perfect/claim', async (req, res) => {
+  const ip = getClientIp(req);
+  const { winId, contacto, name, campaign } = req.body || {};
 
-    const contactoTrim = String(contacto || '').trim();
-    const nameTrim = String(name || '').trim();
+  const nameTrim = String(name || '').trim();
 
-    if (!winId) {
-      return res.status(400).json({ ok: false, error: 'missing_win_id' });
-    }
+  // 🔥 Normalizamos SIEMPRE el teléfono
+  const phone = normalizePhoneES(contacto);
 
-    // ✅ obligatorios para no crear customer.name = null
-    if (!nameTrim) {
-      return res.status(400).json({ ok: false, error: 'missing_name' });
-    }
-    if (!contactoTrim) {
-      return res.status(400).json({ ok: false, error: 'missing_contact' });
-    }
+  if (!winId) {
+    return res.status(400).json({ ok: false, error: 'missing_win_id' });
+  }
 
-    // 1) Buscar ganador no reclamado
-    const [[row]] = await db.query(
-      'SELECT id, tiempo_ms, delta_ms, reclamado FROM perfect_timing_ganador WHERE id = ?',
-      [winId]
-    );
+  // obligatorios
+  if (!nameTrim) {
+    return res.status(400).json({ ok: false, error: 'missing_name' });
+  }
+  if (!phone) {
+    return res.status(400).json({ ok: false, error: 'invalid_phone' });
+  }
 
-    if (!row) {
-      return res.status(404).json({ ok: false, error: 'win_not_found' });
-    }
-    if (row.reclamado) {
-      return res.status(400).json({ ok: false, error: 'already_claimed' });
-    }
+  // 1) Buscar ganador no reclamado
+  const [[row]] = await db.query(
+    'SELECT id, tiempo_ms, delta_ms, reclamado FROM perfect_timing_ganador WHERE id = ?',
+    [winId]
+  );
 
-    // 2) Marcar reclamado
-    await db.query(
-      `UPDATE perfect_timing_ganador
-          SET reclamado = 1,
-              contacto = ?,
-              reclamado_en = CURRENT_TIMESTAMP
-        WHERE id = ?`,
-      [contactoTrim, row.id]
-    );
+  if (!row) {
+    return res.status(404).json({ ok: false, error: 'win_not_found' });
+  }
+  if (row.reclamado) {
+    return res.status(400).json({ ok: false, error: 'already_claimed' });
+  }
 
-    /* ---------- Emisión de cupón opcional (GameId=PT_GAME_ID) ---------- */
-    let couponResp = null;
-    let couponErr  = null;
+  // 2) Marcar reclamado (guardamos SIEMPRE el teléfono normalizado)
+  await db.query(
+    `UPDATE perfect_timing_ganador
+        SET reclamado = 1,
+            contacto = ?,
+            reclamado_en = CURRENT_TIMESTAMP
+      WHERE id = ?`,
+    [phone, row.id]
+  );
 
-    if (salesEnabled) {
-      const gameId = PT_GAME_ID;
-      const url    = salesUrl(`/api/coupons/games/${gameId}/issue`);
-      const idem   = `perfect-claim-${row.id}`;
-      const hoursForCoupon =
-        Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
+  /* ---------- Emisión de cupón opcional (GameId = PT_GAME_ID) ---------- */
+  let couponResp = null;
+  let couponErr  = null;
 
-      // ✅ IMPORTANTE: enviamos también name para que Ventas guarde customer.name
-      const payload = {
-        hours: hoursForCoupon,
-        contact: contactoTrim,   // ✅ ya validado
-        name: nameTrim,          // ✅ NUEVO
-        gameNumber: row.tiempo_ms,
-        campaign: campaign || process.env.PT_GAME_CAMPAIGN || undefined
-      };
+  if (salesEnabled) {
+    const gameId = PT_GAME_ID;
+    const url    = salesUrl(`/api/coupons/games/${gameId}/issue`);
+    const idem   = `perfect-claim-${row.id}`;
+    const hoursForCoupon =
+      Number.isFinite(SALES.hours) && SALES.hours > 0 ? SALES.hours : 24;
 
-      try {
-        const { data } = await postJson(url, payload, {
-          'x-api-key': SALES.key,
-          'x-idempotency-key': idem
-        });
-        couponResp = data || null;
-      } catch (err) {
-        couponErr = err?.message || String(err);
-        console.warn('⚠️  Emisión de cupón PerfectTiming falló:', couponErr);
-      }
-    } else {
-      console.log(
-        'ℹ️  PerfectTiming: integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).'
-      );
-    }
+    // ✅ Payload limpio para Ventas
+    const payload = {
+      hours: hoursForCoupon,
+      contact: phone,        // 👈 YA normalizado (+34...)
+      name: nameTrim,
+      gameNumber: row.tiempo_ms,
+      campaign: campaign || process.env.PT_GAME_CAMPAIGN || undefined
+    };
 
     try {
-      await db.query(
-        `UPDATE perfect_timing_estado
-            SET lock_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? MINUTE)
-          WHERE id = 1`,
-        [LOCK_MINUTES]
-      );
-    } catch (e) {
-      console.warn('⚠️ No se pudo actualizar perfect_timing_estado.lock_until:', e.message || e);
+      const { data } = await postJson(url, payload, {
+        'x-api-key': SALES.key,
+        'x-idempotency-key': idem
+      });
+      couponResp = data || null;
+    } catch (err) {
+      couponErr = err?.message || String(err);
+      console.warn('⚠️  Emisión de cupón PerfectTiming falló:', couponErr);
     }
+  } else {
+    console.log(
+      'ℹ️  PerfectTiming: integración con VENTAS deshabilitada (faltan SALES_API_URL / SALES_API_KEY).'
+    );
+  }
 
-    return res.json({
-      ok: true,
-      claimed: true,
-      couponIssued: !!couponResp,
-      coupon: couponResp || null,
-      couponError: couponErr
-    });
+  try {
+    await db.query(
+      `UPDATE perfect_timing_estado
+          SET lock_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? MINUTE)
+        WHERE id = 1`,
+      [LOCK_MINUTES]
+    );
+  } catch (e) {
+    console.warn(
+      '⚠️ No se pudo actualizar perfect_timing_estado.lock_until:',
+      e.message || e
+    );
+  }
+
+  return res.json({
+    ok: true,
+    claimed: true,
+    couponIssued: !!couponResp,
+    coupon: couponResp || null,
+    couponError: couponErr
   });
+});
+
 
   /* ------------------- ARRANQUE ------------------- */
   app.listen(PORT, () =>
