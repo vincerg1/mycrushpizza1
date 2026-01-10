@@ -1,23 +1,32 @@
-export function normalizePhoneES(raw) {
-  if (!raw) return null;
+function normalizePhoneES(input) {
+  if (!input) return null;
 
-  // quitar todo lo que no sean dígitos
-  let digits = String(raw).replace(/[^\d]/g, "");
+  let raw = String(input).trim();
 
-  // si viene con 00 (0034...)
-  if (digits.startsWith("00")) {
-    digits = digits.slice(2);
+  // quitar todo lo que no sean números
+  raw = raw.replace(/[^\d+]/g, '');
+
+  // 0034 -> +34
+  if (raw.startsWith('0034')) {
+    raw = '+34' + raw.slice(4);
   }
 
-  // si viene con 34 delante
-  if (digits.startsWith("34") && digits.length === 11) {
-    digits = digits.slice(2);
+  // 34XXXXXXXXX -> +34XXXXXXXXX
+  if (raw.startsWith('34') && raw.length === 11) {
+    raw = '+34' + raw.slice(2);
   }
 
-  // ahora debería ser 9 dígitos
-  if (digits.length !== 9) {
-    return null; // número inválido
+  // 6XXXXXXXX o 7XXXXXXXX o 9XXXXXXXX → España
+  if (/^[679]\d{8}$/.test(raw)) {
+    raw = '+34' + raw;
   }
 
-  return `+34${digits}`;
+  // +34XXXXXXXXX válido
+  if (/^\+34\d{9}$/.test(raw)) {
+    return raw;
+  }
+
+  return null;
 }
+
+module.exports = { normalizePhoneES };

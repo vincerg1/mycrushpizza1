@@ -1,4 +1,4 @@
-import { normalizePhoneES } from './utils/phone.js';
+const { normalizePhoneES } = require('./utils/phone.js');
 require('dotenv').config();
 const express     = require('express');
 const cors        = require('cors');
