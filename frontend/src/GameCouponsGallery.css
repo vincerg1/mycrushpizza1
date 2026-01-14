@@ -113,6 +113,16 @@
   scroll-snap-align: center;
   flex: 0 0 auto;
   width: clamp(260px, 72vw, 420px);
+
+  /* 🔥 Esto convierte cada carta en un "slot" independiente */
+  position: relative;
+  isolation: isolate;   /* clave: evita que el hover afecte a vecinas */
+  z-index: 1;
+}
+
+/* cuando el usuario pasa por encima de una carta */
+.gcg-carousel-item:hover {
+  z-index: 20;
 }
 
 /* ===== Edge gradients + arrows ===== */
@@ -190,7 +200,7 @@
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-
+  pointer-events: auto;
   width: 100%;
   aspect-ratio: 63 / 88; /* Pokémon / Baseball */
   max-width: 420px;
@@ -251,7 +261,7 @@
     0 40px 80px rgba(0,0,0,.85),
     0 0 50px rgba(255,255,255,.9);
   border-color: rgba(255,255,255,1);
-  z-index: 5;
+  z-index: 50;
 }
 
 .gcg-card:not(.gcg-card--active):hover {
@@ -673,7 +683,9 @@
 /* ===== Small screens tweaks ===== */
 @media (max-width: 420px) {
   .gcg-title { font-size: 1.6rem; }
-
+  .gcg-carousel-edge {
+    display: none !important;
+  }
   /* En móvil, mantenemos el look “grande”, pero sin romper el ratio */
   .gcg-card {
     padding: 18px 16px 14px;
