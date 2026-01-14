@@ -892,7 +892,7 @@ export default function GameCouponsGallery() {
                 >
                   <CouponCard
                     group={group}
-                    isActive={activeGroup?.type === group.type}
+                    isActive={activeGroup?.bucket === group.bucket && activeGroup?.type === group.type}
                     onSelect={() => setActiveGroup(group)}
                     onPrimary={() => handlePrimaryActionForGroup(group)}
                     gameStatus={

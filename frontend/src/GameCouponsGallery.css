@@ -113,10 +113,8 @@
   scroll-snap-align: center;
   flex: 0 0 auto;
   width: clamp(260px, 72vw, 420px);
-
-  /* 🔥 Esto convierte cada carta en un "slot" independiente */
   position: relative;
-  isolation: isolate;   /* clave: evita que el hover afecte a vecinas */
+  isolation: isolate;   
   z-index: 1;
 }
 
