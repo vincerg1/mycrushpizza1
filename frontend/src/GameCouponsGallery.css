@@ -71,6 +71,7 @@
 }
 
 /* ===== Gallery & carousel ===== */
+/* ===== Gallery & carousel ===== */
 .gcg-gallery {
   padding: 6px 0 8px;
   display: flex;
@@ -79,9 +80,9 @@
 
 .gcg-carousel {
   position: relative;
-  width: 90%;
-  max-width: var(--gcg-card-max);
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;               /* ⛔ ya no limita a una sola tarjeta */
+  margin: 0;
   padding: 10px 0 4px;
   overflow-x: auto;
   overflow-y: visible;
@@ -89,7 +90,7 @@
   scroll-snap-type: x mandatory;
 }
 
-/* ocultar barra de scroll visualmente (push mobile look) */
+/* scrollbar fino */
 .gcg-carousel::-webkit-scrollbar {
   height: 4px;
 }
@@ -104,24 +105,26 @@
 .gcg-carousel-inner {
   display: flex;
   align-items: stretch;
-  gap: 16px;
-  padding: 0 18px 8px;
+  gap: 18px;
+  padding: 0 12vw 12px;          /* 🔥 espacio lateral para “peek” */
   box-sizing: border-box;
 }
 
+/* Cada tarjeta ocupa menos del ancho total */
 .gcg-carousel-item {
   scroll-snap-align: center;
   flex: 0 0 auto;
-  width: min(88vw, var(--gcg-card-max));
+  width: clamp(260px, 72vw, 420px);   /* 🔥 mobile → grande, desktop → varias */
 }
 
-/* ===== Edge gradients + arrows (hint de swipe) ===== */
+/* ===== Edge gradients + arrows ===== */
 .gcg-carousel-edge {
   position: absolute;
   top: 6px;
   bottom: 30px;
-  width: 38px;
+  width: 42px;
   pointer-events: none;
+  z-index: 10;
 }
 
 .gcg-carousel-edge--left {
@@ -132,6 +135,7 @@
     rgba(3, 5, 40, 0)
   );
 }
+
 .gcg-carousel-edge--right {
   right: 0;
   background: linear-gradient(
@@ -141,20 +145,19 @@
   );
 }
 
-/* Flechas animadas dentro de las sombras */
 .gcg-carousel-edge::after {
   content: "";
   position: absolute;
   top: 50%;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
-  border: 2px solid rgba(255, 255, 255, 0.85);
+  border: 2px solid rgba(255, 255, 255, 0.9);
   border-top-color: transparent;
   border-bottom-color: transparent;
   border-right-color: transparent;
   transform-origin: center;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 .gcg-carousel-edge--left::after {
@@ -162,11 +165,13 @@
   transform: translateY(-50%) rotate(135deg);
   animation: gcg-arrow-left 1.4s ease-in-out infinite;
 }
+
 .gcg-carousel-edge--right::after {
   right: 14px;
   transform: translateY(-50%) rotate(-45deg);
   animation: gcg-arrow-right 1.4s ease-in-out infinite;
 }
+
 
 @keyframes gcg-arrow-left {
   0% {
@@ -203,31 +208,43 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  overflow: hidden;              
-  width: 95%;
-  min-height: clamp(240px, 48vh, 310px);
-  padding: 18px 18px 14px;
-  border-radius: 24px;
+  overflow: hidden;
+
+  /* 🎴 Proporción REAL de carta coleccionable */
+  width: 100%;
+  aspect-ratio: 63 / 88;             /* Pokémon / Baseball card ratio */
+  max-width: 420px;
+
+  padding: 22px 18px 20px;
+
+  /* Bordes tipo carta física */
+  border-radius: 22px 22px 28px 28px;
+
   background:
-    radial-gradient(circle at 0% 0%, rgba(255,255,255,.24), transparent 55%),
-    radial-gradient(circle at 100% 100%, rgba(0,0,0,.25), transparent 55%),
+    radial-gradient(circle at 0% 0%, rgba(255,255,255,.28), transparent 55%),
+    radial-gradient(circle at 100% 100%, rgba(0,0,0,.35), transparent 55%),
     linear-gradient(135deg, #ff5aa2, #f92672);
+
   color: #ffffff;
 
+  /* Marco de carta */
+  border: 3px solid rgba(255,255,255,.55);
 
-  border: 2px solid rgba(255, 255, 255, 0.35);
   box-shadow:
-    0 18px 35px rgba(0, 0, 0, 0.55),
-    0 0 25px rgba(249, 38, 114, 0.7);
-  transform: translateY(0) scale(0.96);
+    0 30px 60px rgba(0,0,0,.75),
+    inset 0 0 0 2px rgba(0,0,0,.35),
+    0 0 40px rgba(249,38,114,.85);
+
+  /* Estado de carta en el mazo */
+  transform: translateY(12px) scale(.92);
   transition:
-    transform 0.16s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease,
+    transform .25s cubic-bezier(.2,.9,.2,1),
+    box-shadow .3s ease,
+    border-color .2s ease,
     background-position 3s ease;
+
   background-size: 140% 140%;
 }
-/* Logo grande y opaco dentro de la tarjeta */
 .gcg-card::after {
   content: "";
   position: absolute;
@@ -247,25 +264,26 @@
   position: relative;
   z-index: 1;
 }
-/* Hover / activo: glow fuerte */
-.gcg-card--active,
-.gcg-card:hover {
-  transform: translateY(-6px) scale(1.02);
+.gcg-card--active {
+  transform: translateY(-14px) scale(1.03);
   box-shadow:
-    0 26px 50px rgba(0, 0, 0, 0.7),
-    0 0 32px rgba(255, 255, 255, 0.9);
-  border-color: rgba(255, 255, 255, 0.9);
+    0 40px 80px rgba(0,0,0,.85),
+    0 0 50px rgba(255,255,255,.9);
+  border-color: rgba(255,255,255,1);
+  z-index: 5;
 }
-
-/* Direct vs game: variantes de fondo */
+.gcg-card:not(.gcg-card--active):hover {
+  transform: translateY(4px) scale(.96);
+  box-shadow:
+    0 18px 36px rgba(0,0,0,.6),
+    0 0 20px rgba(255,255,255,.4);
+}
 .gcg-card--direct {
   background:
     radial-gradient(circle at 0% 0%, rgba(255,255,255,.22), transparent 55%),
     radial-gradient(circle at 110% 120%, rgba(0,0,0,.55), transparent 60%),
     linear-gradient(135deg, #4285f4 0%, #f92672 40%, #ffb003 100%);
 }
-
-/* Cupón de juego dorado */
 .gcg-card--game {
   background:
     radial-gradient(circle at 20% 0%, rgba(255,255,255,.45), transparent 55%),
@@ -277,8 +295,6 @@
     0 20px 40px rgba(0, 0, 0, 0.65),
     0 0 32px rgba(255, 216, 107, 0.95);
 }
-
-/* Shimmer animado para el cupón de juego */
 .gcg-card--game::before {
   content: "";
   position: absolute;
@@ -295,28 +311,22 @@
   transform: translateX(-40%);
   pointer-events: none;
 }
-
-/* Disparo del brillo cuando hover/activo */
 .gcg-card--game.gcg-card--active::before,
 .gcg-card--game:hover::before {
   animation: gcg-shimmer 1.2s ease-out forwards;
 }
-
 @keyframes gcg-shimmer {
   0%   { opacity: 0;   transform: translateX(-45%); }
   15%  { opacity: 1; }
   60%  { opacity: 0.4; transform: translateX(55%); }
   100% { opacity: 0;   transform: translateX(95%); }
 }
-
-/* Header */
 .gcg-card-header {
   display: flex;
   justify-content: flex-start;
   align-items: center;
   margin-bottom: 10px;
 }
-
 .gcg-card-badge {
   display: inline-flex;
   align-items: center;
@@ -332,15 +342,12 @@
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
-
-/* Body */
 .gcg-card-body {
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
-
 .gcg-card-title {
   margin: 6px 0 4px;
   font-size: 1.5rem;
@@ -351,7 +358,6 @@
     0 0 10px rgba(0, 0, 0, 0.8),
     0 2px 0 rgba(0, 0, 0, 0.8);
 }
-
 .gcg-card-example {
   margin: 0;
   font-size: 5rem;
@@ -360,18 +366,15 @@
   text-align: center;
   text-shadow: 0 1px 3px rgba(0,0,0,0.65);
 }
-
 .gcg-card--game .gcg-card-example {
   color: #5b3510;
 }
-
 .gcg-card-subtitle {
   margin: 6px 0 0;
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.96);
   text-align: center;
 }
-
 .gcg-card--game .gcg-card-subtitle {
   color: rgba(40, 25, 5, 0.9);
 }
@@ -384,8 +387,6 @@
   gap: 12px;
   margin-top: 14px;
 }
-
-/* ===== Stock (con pill + pulse) ===== */
 .gcg-card-stock {
   display: flex;
   flex-direction: column;
@@ -393,15 +394,12 @@
   font-size: 0.8rem;
   font-weight: 900;
 }
-
 .gcg-card-stock-label {
   opacity: 0.9;
   margin-bottom: 3px;
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
-
-/* pill por defecto, siempre con pulso suave */
 .gcg-card-stock-value {
   display: inline-flex;
   align-items: center;
@@ -419,14 +417,11 @@
   animation: gcg-stock-pulse 1.4s ease-in-out infinite;
   transform-origin: center;
 }
-
-/* cuando el front añada gcg-card-stock-value--low (<=3) */
 .gcg-card-stock-value--low {
   color: #2b59ff;
   text-shadow: 0 0 10px rgba(255, 109, 109, 0.95);
   animation-duration: 0.9s;
 }
-
 @keyframes gcg-stock-pulse {
   0% {
     transform: scale(1);
@@ -447,7 +442,6 @@
       0 0 14px rgba(255, 255, 255, 0.2);
   }
 }
-
 .gcg-card-stock-empty {
   font-size: 0.82rem;
   font-weight: 700;
@@ -455,8 +449,6 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
-
-/* CTA */
 .gcg-card-cta {
   flex: 0 0 auto;
   max-width: 120px;
@@ -479,7 +471,6 @@
   letter-spacing: 0.08em;
   transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 }
-
 .gcg-card-cta:hover:not(:disabled) {
   filter: brightness(0.97);
   box-shadow:
@@ -487,12 +478,10 @@
     0 0 18px rgba(255, 255, 255, 0.9);
   transform: translateY(-2px);
 }
-
 .gcg-card-cta:active:not(:disabled) {
   transform: translateY(1px);
   box-shadow: 0 5px 12px rgba(0, 0, 0, 0.35);
 }
-
 .gcg-card-cta:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -648,6 +637,27 @@
 .gcg-modal-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+/* ===== Swipe hint (mano 👆) ===== */
+.gcg-swipe-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  font-size: 3rem;
+  pointer-events: none;
+  z-index: 20;
+  animation: gcg-swipe-hint 3.5s ease-out forwards;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.6));
+}
+
+@keyframes gcg-swipe-hint {
+  0%   { opacity: 0; transform: translate(-50%, 20px); }
+  10%  { opacity: 1; }
+  30%  { transform: translate(-70%, 0); }
+  50%  { transform: translate(-30%, 0); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -20px); }
 }
 
 /* ===== Small screens tweaks ===== */

@@ -878,31 +878,39 @@ export default function GameCouponsGallery() {
         )}
 
         {!loading && !error && groups.length > 0 && (
-          <section className="gcg-gallery">
-            <div className="gcg-carousel">
-              <div className="gcg-carousel-inner">
-                {groups.map((group) => (
-                  <div
-                    key={`${group.bucket}-${group.type}`}
-                    className="gcg-carousel-item"
-                  >
-                    <CouponCard
-                      group={group}
-                      isActive={activeGroup?.type === group.type}
-                      onSelect={() => setActiveGroup(group)}
-                      onPrimary={() => handlePrimaryActionForGroup(group)}
-                      gameStatus={
-                        group.gameId != null
-                          ? gameStatus[group.gameId] || null
-                          : null
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-              {/* efectos de sombra laterales para indicar más contenido */}
+        <section className="gcg-gallery">
+          <div className="gcg-carousel">
+
+            {/* Swipe hint inicial 👆 */}
+            <div className="gcg-swipe-hint">👆</div>
+
+            <div className="gcg-carousel-inner">
+              {groups.map((group) => (
+                <div
+                  key={`${group.bucket}-${group.type}`}
+                  className="gcg-carousel-item"
+                >
+                  <CouponCard
+                    group={group}
+                    isActive={activeGroup?.type === group.type}
+                    onSelect={() => setActiveGroup(group)}
+                    onPrimary={() => handlePrimaryActionForGroup(group)}
+                    gameStatus={
+                      group.gameId != null
+                        ? gameStatus[group.gameId] || null
+                        : null
+                    }
+                  />
+                </div>
+              ))}
             </div>
-          </section>
+
+            {/* sombras laterales + flechas animadas */}
+            <div className="gcg-carousel-edge gcg-carousel-edge--left" />
+            <div className="gcg-carousel-edge gcg-carousel-edge--right" />
+
+          </div>
+        </section>
         )}
 
         <ClaimModal
