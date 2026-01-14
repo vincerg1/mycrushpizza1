@@ -1,7 +1,6 @@
 /* ===== Root / layout ===== */
 .gcg-root {
-  /* sin min-height para que el footer suba hasta donde llegue el contenido */
-  padding-bottom: 24px;       /* un poco de azul por detrás del footer */
+  padding-bottom: 24px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -9,12 +8,10 @@
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, sans-serif;
 
-  /* usamos los colores de la página de ventas */
   --gcg-pink: #f92672;
   --gcg-blue: #4285f4;
   --gcg-card-max: var(--pc-card-max, 560px);
 
-  /* nuevos colores para cupones */
   --gcg-gold-1: #ffd86b;
   --gcg-gold-2: #ffb347;
   --gcg-gold-3: #ffefc2;
@@ -71,19 +68,20 @@
 }
 
 /* ===== Gallery & carousel ===== */
-/* ===== Gallery & carousel ===== */
 .gcg-gallery {
-  padding: 6px 0 8px;
+  padding: 10px 0 10px;
   display: flex;
   justify-content: center;
+  position: relative;
 }
 
+/* ✅ clave: damos “aire arriba” para que la tarjeta activa no se corte al subir */
 .gcg-carousel {
   position: relative;
   width: 100%;
-  max-width: none;               /* ⛔ ya no limita a una sola tarjeta */
+  max-width: none;
   margin: 0;
-  padding: 10px 0 4px;
+  padding: 28px 0 10px;  /* 🔥 antes 10px: ahora hay espacio arriba */
   overflow-x: auto;
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
@@ -106,7 +104,7 @@
   display: flex;
   align-items: stretch;
   gap: 18px;
-  padding: 0 12vw 12px;          /* 🔥 espacio lateral para “peek” */
+  padding: 0 12vw 14px;
   box-sizing: border-box;
 }
 
@@ -114,15 +112,15 @@
 .gcg-carousel-item {
   scroll-snap-align: center;
   flex: 0 0 auto;
-  width: clamp(260px, 72vw, 420px);   /* 🔥 mobile → grande, desktop → varias */
+  width: clamp(260px, 72vw, 420px);
 }
 
 /* ===== Edge gradients + arrows ===== */
 .gcg-carousel-edge {
   position: absolute;
-  top: 6px;
-  bottom: 30px;
-  width: 42px;
+  top: 18px;          /* 🔥 baja un poco para que no moleste al header */
+  bottom: 26px;
+  width: 52px;
   pointer-events: none;
   z-index: 10;
 }
@@ -161,44 +159,27 @@
 }
 
 .gcg-carousel-edge--left::after {
-  left: 14px;
+  left: 18px;
   transform: translateY(-50%) rotate(135deg);
   animation: gcg-arrow-left 1.4s ease-in-out infinite;
 }
 
 .gcg-carousel-edge--right::after {
-  right: 14px;
+  right: 18px;
   transform: translateY(-50%) rotate(-45deg);
   animation: gcg-arrow-right 1.4s ease-in-out infinite;
 }
 
-
 @keyframes gcg-arrow-left {
-  0% {
-    transform: translate(-6px, -50%) rotate(135deg);
-    opacity: 0;
-  }
-  40% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(3px, -50%) rotate(135deg);
-    opacity: 0;
-  }
+  0%   { transform: translate(-6px, -50%) rotate(135deg); opacity: 0; }
+  40%  { opacity: 1; }
+  100% { transform: translate(4px, -50%) rotate(135deg); opacity: 0; }
 }
 
 @keyframes gcg-arrow-right {
-  0% {
-    transform: translate(6px, -50%) rotate(-45deg);
-    opacity: 0;
-  }
-  40% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-3px, -50%) rotate(-45deg);
-    opacity: 0;
-  }
+  0%   { transform: translate(6px, -50%) rotate(-45deg); opacity: 0; }
+  40%  { opacity: 1; }
+  100% { transform: translate(-4px, -50%) rotate(-45deg); opacity: 0; }
 }
 
 /* ===== Cards ===== */
@@ -210,14 +191,11 @@
   justify-content: space-between;
   overflow: hidden;
 
-  /* 🎴 Proporción REAL de carta coleccionable */
   width: 100%;
-  aspect-ratio: 63 / 88;             /* Pokémon / Baseball card ratio */
+  aspect-ratio: 63 / 88; /* Pokémon / Baseball */
   max-width: 420px;
 
   padding: 22px 18px 20px;
-
-  /* Bordes tipo carta física */
   border-radius: 22px 22px 28px 28px;
 
   background:
@@ -226,8 +204,6 @@
     linear-gradient(135deg, #ff5aa2, #f92672);
 
   color: #ffffff;
-
-  /* Marco de carta */
   border: 3px solid rgba(255,255,255,.55);
 
   box-shadow:
@@ -235,8 +211,7 @@
     inset 0 0 0 2px rgba(0,0,0,.35),
     0 0 40px rgba(249,38,114,.85);
 
-  /* Estado de carta en el mazo */
-  transform: translateY(12px) scale(.92);
+  transform: translateY(10px) scale(.92);
   transition:
     transform .25s cubic-bezier(.2,.9,.2,1),
     box-shadow .3s ease,
@@ -245,6 +220,8 @@
 
   background-size: 140% 140%;
 }
+
+/* Logo dentro */
 .gcg-card::after {
   content: "";
   position: absolute;
@@ -253,37 +230,45 @@
   background-repeat: no-repeat;
   background-position: center;
   background-size: 130%;
-  opacity: 0.14;                 /* puedes subir/bajar este valor (0.10–0.20) */
-  mix-blend-mode: screen;        /* se fusiona con el gradiente */
+  opacity: 0.14;
+  mix-blend-mode: screen;
   pointer-events: none;
   z-index: 0;
 }
+
 .gcg-card-header,
 .gcg-card-body,
 .gcg-card-footer {
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
+
+/* ✅ activo sube pero ya no “rompe” porque el carrusel tiene padding-top */
 .gcg-card--active {
-  transform: translateY(-14px) scale(1.03);
+  transform: translateY(-10px) scale(1.03); /* 🔥 antes -14, ahora más controlado */
   box-shadow:
     0 40px 80px rgba(0,0,0,.85),
     0 0 50px rgba(255,255,255,.9);
   border-color: rgba(255,255,255,1);
   z-index: 5;
 }
+
 .gcg-card:not(.gcg-card--active):hover {
   transform: translateY(4px) scale(.96);
   box-shadow:
     0 18px 36px rgba(0,0,0,.6),
     0 0 20px rgba(255,255,255,.4);
 }
+
+/* Direct vs game */
 .gcg-card--direct {
   background:
     radial-gradient(circle at 0% 0%, rgba(255,255,255,.22), transparent 55%),
     radial-gradient(circle at 110% 120%, rgba(0,0,0,.55), transparent 60%),
     linear-gradient(135deg, #4285f4 0%, #f92672 40%, #ffb003 100%);
 }
+
 .gcg-card--game {
   background:
     radial-gradient(circle at 20% 0%, rgba(255,255,255,.45), transparent 55%),
@@ -295,6 +280,8 @@
     0 20px 40px rgba(0, 0, 0, 0.65),
     0 0 32px rgba(255, 216, 107, 0.95);
 }
+
+/* Shimmer */
 .gcg-card--game::before {
   content: "";
   position: absolute;
@@ -311,22 +298,27 @@
   transform: translateX(-40%);
   pointer-events: none;
 }
+
 .gcg-card--game.gcg-card--active::before,
 .gcg-card--game:hover::before {
   animation: gcg-shimmer 1.2s ease-out forwards;
 }
+
 @keyframes gcg-shimmer {
   0%   { opacity: 0;   transform: translateX(-45%); }
   15%  { opacity: 1; }
   60%  { opacity: 0.4; transform: translateX(55%); }
   100% { opacity: 0;   transform: translateX(95%); }
 }
+
+/* Header */
 .gcg-card-header {
   display: flex;
   justify-content: flex-start;
   align-items: center;
   margin-bottom: 10px;
 }
+
 .gcg-card-badge {
   display: inline-flex;
   align-items: center;
@@ -342,51 +334,60 @@
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
+
+/* Body */
 .gcg-card-body {
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  min-height: 0;
 }
+
+/* ✅ evita cortes/overflow en desktop con textos largos */
 .gcg-card-title {
   margin: 6px 0 4px;
-  font-size: 1.5rem;
+  font-size: clamp(1.15rem, 2.3vw, 1.55rem); /* 🔥 responsive */
   font-weight: 900;
   letter-spacing: 0.04em;
   text-align: center;
+  line-height: 1.08;
+  text-wrap: balance;
   text-shadow:
     0 0 10px rgba(0, 0, 0, 0.8),
     0 2px 0 rgba(0, 0, 0, 0.8);
 }
+
 .gcg-card-example {
   margin: 0;
-  font-size: 5rem;
+  font-size: clamp(3.4rem, 8vw, 5rem); /* 🔥 ya no se desborda */
   font-weight: 900;
   color: #ffeefc;
   text-align: center;
+  line-height: 0.95;
   text-shadow: 0 1px 3px rgba(0,0,0,0.65);
 }
-.gcg-card--game .gcg-card-example {
-  color: #5b3510;
-}
+
+.gcg-card--game .gcg-card-example { color: #5b3510; }
+
 .gcg-card-subtitle {
   margin: 6px 0 0;
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.96);
   text-align: center;
 }
-.gcg-card--game .gcg-card-subtitle {
-  color: rgba(40, 25, 5, 0.9);
-}
+.gcg-card--game .gcg-card-subtitle { color: rgba(40, 25, 5, 0.9); }
 
 /* Footer */
 .gcg-card-footer {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
   margin-top: 14px;
+  flex-wrap: wrap;            /* ✅ arregla casos donde el CTA/título empujan */
 }
+
 .gcg-card-stock {
   display: flex;
   flex-direction: column;
@@ -394,12 +395,14 @@
   font-size: 0.8rem;
   font-weight: 900;
 }
+
 .gcg-card-stock-label {
   opacity: 0.9;
   margin-bottom: 3px;
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
+
 .gcg-card-stock-value {
   display: inline-flex;
   align-items: center;
@@ -417,11 +420,13 @@
   animation: gcg-stock-pulse 1.4s ease-in-out infinite;
   transform-origin: center;
 }
+
 .gcg-card-stock-value--low {
   color: #2b59ff;
   text-shadow: 0 0 10px rgba(255, 109, 109, 0.95);
   animation-duration: 0.9s;
 }
+
 @keyframes gcg-stock-pulse {
   0% {
     transform: scale(1);
@@ -442,6 +447,7 @@
       0 0 14px rgba(255, 255, 255, 0.2);
   }
 }
+
 .gcg-card-stock-empty {
   font-size: 0.82rem;
   font-weight: 700;
@@ -449,9 +455,11 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+
+/* CTA */
 .gcg-card-cta {
   flex: 0 0 auto;
-  max-width: 120px;
+  max-width: none;             /* ✅ ya no se corta por max-width */
   padding: 10px 16px;
   border-radius: 999px;
   border: 0;
@@ -464,6 +472,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  white-space: nowrap;         /* ✅ evita “CLAIM” en dos líneas */
   box-shadow:
     0 10px 20px rgba(0, 0, 0, 0.35),
     0 0 14px rgba(255, 255, 255, 0.8);
@@ -471,6 +480,7 @@
   letter-spacing: 0.08em;
   transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 }
+
 .gcg-card-cta:hover:not(:disabled) {
   filter: brightness(0.97);
   box-shadow:
@@ -496,16 +506,15 @@
   color: rgba(255,255,255,.86);
   filter: grayscale(0.3);
   box-shadow: 0 12px 24px rgba(0,0,0,.55);
-  transform: translateY(0) scale(0.96);
+  transform: translateY(10px) scale(.92);
   border-color: rgba(209,213,219,0.8);
 }
 
 .gcg-card--soldout:hover {
-  transform: translateY(0) scale(0.96);
+  transform: translateY(10px) scale(.92);
   box-shadow: 0 12px 24px rgba(0,0,0,.55);
 }
 
-/* capa “AGOTADO” encima */
 .gcg-card--soldout::after {
   content: "AGOTADO";
   position: absolute;
@@ -638,11 +647,12 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
 /* ===== Swipe hint (mano 👆) ===== */
 .gcg-swipe-hint {
   position: absolute;
   left: 50%;
-  bottom: 18%;
+  bottom: 20%;
   transform: translateX(-50%);
   font-size: 3rem;
   pointer-events: none;
@@ -652,123 +662,107 @@
 }
 
 @keyframes gcg-swipe-hint {
-  0%   { opacity: 0; transform: translate(-50%, 20px); }
+  0%   { opacity: 0; transform: translate(-50%, 18px); }
   10%  { opacity: 1; }
   30%  { transform: translate(-70%, 0); }
   50%  { transform: translate(-30%, 0); }
   70%  { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%, -20px); }
+  100% { opacity: 0; transform: translate(-50%, -18px); }
 }
 
 /* ===== Small screens tweaks ===== */
 @media (max-width: 420px) {
-  .gcg-title {
-    font-size: 1.6rem;
-  }
+  .gcg-title { font-size: 1.6rem; }
 
+  /* En móvil, mantenemos el look “grande”, pero sin romper el ratio */
   .gcg-card {
-    border-radius: 24px;
     padding: 18px 16px 14px;
-    min-height: 340px;
+    border-radius: 24px;
   }
 
-  .gcg-card-title {
-    font-size: 1.35rem;
-  }
+  .gcg-card-title { font-size: 1.35rem; }
 
   .gcg-card-cta {
-    min-width: 0;
     padding-inline: 12px;
     font-size: 0.86rem;
   }
-  /* ===== Estado SOLD OUT ===== */
-/* Mantiene el look general; solo lo “apaga” un poco */
-.gcg-card--soldout {
-  filter: grayscale(0.05) saturate(0.9);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.55);
-  transform: translateY(0) scale(0.96);
-  border-color: rgba(229, 231, 235, 0.9);
+
+  /* SOLD OUT refinado */
+  .gcg-card--soldout {
+    filter: grayscale(0.05) saturate(0.9);
+    border-color: rgba(229, 231, 235, 0.9);
+  }
+
+  .gcg-card--soldout::before {
+    content: "SOLD OUT";
+    position: absolute;
+    top: 16px;
+    right: -42px;
+    padding: 4px 46px;
+    transform: rotate(35deg);
+    background: linear-gradient(135deg, #111827, #4b5563);
+    color: #f9fafb;
+    text-transform: uppercase;
+    font-weight: 900;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
+    z-index: 3;
+  }
+
+  .gcg-card--soldout .gcg-card-cta {
+    opacity: 0.75;
+    box-shadow: none;
+    background: transparent;
+    border: 1px solid rgba(249, 250, 251, 0.8);
+    color: rgba(249, 250, 251, 0.85);
+  }
+
+  .gcg-card-stock-empty {
+    opacity: 0.9;
+  }
+
+  /* Label + countdown */
+  .gcg-card-game-label {
+    margin: 2px 0 4px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: rgba(255, 255, 255, 0.9);
+  }
+  .gcg-card--game .gcg-card-game-label {
+    color: rgba(45, 28, 9, 0.9);
+  }
+  .gcg-card-game-label-icon { margin-right: 4px; }
+
+  .gcg-card-countdown {
+    margin: 2px 0 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.9);
+  }
+  .gcg-card--game .gcg-card-countdown {
+    color: rgba(65, 40, 10, 0.9);
+  }
 }
 
-/* No levantamos la tarjeta al hover si está agotada */
-.gcg-card--soldout:hover {
-  transform: translateY(0) scale(0.96);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.55);
-}
+/* ===== Desktop polish ===== */
+@media (min-width: 900px) {
+  /* 🔥 En desktop, controlamos el “peek” para que no quede raro */
+  .gcg-carousel-inner {
+    padding: 0 90px 18px; /* espacio para laterales tipo “rail” */
+  }
 
-/* Cinta diagonal SOLD OUT (usa ::before, por encima del contenido) */
-.gcg-card--soldout::before {
-  content: "SOLD OUT";
-  position: absolute;
-  top: 16px;
-  right: -42px;
-  padding: 4px 46px;
-  transform: rotate(35deg);
-  background: linear-gradient(135deg, #111827, #4b5563);
-  color: #f9fafb;
-  text-transform: uppercase;
-  font-weight: 900;
-  font-size: 0.7rem;
-  letter-spacing: 0.18em;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
-  z-index: 3;
-}
-
-/* Si es de juego + sold out, desactivamos el shimmer dorado */
-.gcg-card--soldout.gcg-card--game::before {
-  /* la cinta de sold out ya se aplica con el selector anterior */
-}
-
-/* CTA cuando está agotado: pill discreto, no botón principal */
-.gcg-card--soldout .gcg-card-cta {
-  opacity: 0.75;
-  cursor: not-allowed;
-  box-shadow: none;
-  background: transparent;
-  border: 1px solid rgba(249, 250, 251, 0.8);
-  color: rgba(249, 250, 251, 0.85);
-}
-
-/* Texto “sold out” del bloque de stock (abajo a la izquierda) */
-.gcg-card-stock-empty {
-  font-size: 0.82rem;
-  font-weight: 700;
-  opacity: 0.9;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-/* Etiqueta del juego bajo el título */
-.gcg-card-game-label {
-  margin: 2px 0 4px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.gcg-card--game .gcg-card-game-label {
-  color: rgba(45, 28, 9, 0.9);
-}
-
-.gcg-card-game-label-icon {
-  margin-right: 4px;
-}
-
-/* Countdown cuando el juego está bloqueado */
-.gcg-card-countdown {
-  margin: 2px 0 6px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-align: center;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.gcg-card--game .gcg-card-countdown {
-  color: rgba(65, 40, 10, 0.9);
-}
-
+  /* 🔥 Las tarjetas no deben “bailar” tanto en desktop */
+  .gcg-card {
+    transform: translateY(6px) scale(.94);
+  }
+  .gcg-card--active {
+    transform: translateY(-6px) scale(1.03);
+  }
 }
