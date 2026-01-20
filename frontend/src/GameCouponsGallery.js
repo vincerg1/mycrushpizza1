@@ -322,7 +322,7 @@ function normalizeGalleryData(raw) {
 
         // 👇 añadimos el gameId para usarlo al navegar y para el estado
         gameId: c.gameId ?? null,
-
+        visibility: c.visibility ?? "PUBLIC",
         rawCard: c,
       };
     });
