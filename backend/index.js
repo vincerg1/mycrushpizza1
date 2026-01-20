@@ -397,14 +397,14 @@ app.get('/game/coupons-gallery', async (req, res) => {
       // 1️⃣ estado
       if (c.status && c.status !== 'ACTIVE') return false;
 
-      // 2️⃣ visibilidad (CLAVE)
-      if (c.visibility !== 'PUBLIC') return false;
+      // 1️⃣➕ visibilidad (NUEVO, SIMPLE)
+      if (c.visibility && c.visibility !== 'PUBLIC') return false;
 
-      // 3️⃣ fechas
+      // 2️⃣ fechas
       if (c.activeFrom && new Date(c.activeFrom).getTime() > now) return false;
       if (c.expiresAt && new Date(c.expiresAt).getTime() <= now) return false;
 
-      // 4️⃣ límite de uso
+      // 3️⃣ límite de uso
       if (
         typeof c.usageLimit === 'number' &&
         typeof c.usedCount === 'number' &&
@@ -413,6 +413,9 @@ app.get('/game/coupons-gallery', async (req, res) => {
       ) {
         return false;
       }
+
+      // 4️⃣ cupón individual (se mantiene TAL CUAL porque este endpoint funcionaba)
+      if (c.assignedToId != null) return false;
 
       return true;
     });
