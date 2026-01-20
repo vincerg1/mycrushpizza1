@@ -394,20 +394,14 @@ app.get('/game/coupons-gallery', async (req, res) => {
     const now = Date.now();
 
     const filteredCards = data.cards.filter((c) => {
-      /* =========================
-         1️⃣ Estado
-      ========================= */
+      // 1️⃣ estado
       if (c.status && c.status !== 'ACTIVE') return false;
 
-      /* =========================
-         2️⃣ Ventanas de tiempo
-      ========================= */
+      // 2️⃣ fechas
       if (c.activeFrom && new Date(c.activeFrom).getTime() > now) return false;
       if (c.expiresAt && new Date(c.expiresAt).getTime() <= now) return false;
 
-      /* =========================
-         3️⃣ Límite de uso
-      ========================= */
+      // 3️⃣ límite de uso
       if (
         typeof c.usageLimit === 'number' &&
         typeof c.usedCount === 'number' &&
@@ -417,24 +411,8 @@ app.get('/game/coupons-gallery', async (req, res) => {
         return false;
       }
 
-      /* =========================
-         4️⃣ Cupón individual (FUERTE)
-         ─────────────────────────
-         Regla TEMPORAL pero EFECTIVA:
-         - Cupones de galería SIEMPRE
-           deben tener segmentación explícita
-         - Un cupón sin segments se considera
-           NO público
-      ========================= */
-      if (c.segments == null) {
-        return false;
-      }
-
-      /* =========================
-         5️⃣ Refuerzo defensivo:
-         assignedToId (si algún día llega)
-      ========================= */
-      if (c.assignedToId != null) {
+      // 4️⃣ 🎯 REGLA CLAVE: solo cupones segmentados
+      if (!Array.isArray(c.segments) || c.segments.length === 0) {
         return false;
       }
 
@@ -452,6 +430,9 @@ app.get('/game/coupons-gallery', async (req, res) => {
       .json({ error: 'Failed to fetch coupons gallery from sales backend' });
   }
 });
+
+
+
 
  app.post('/game/direct-claim', async (req, res) => {
   if (!salesEnabled) {
