@@ -375,9 +375,11 @@ function startServer () {
 
 app.get('/game/coupons-gallery', async (req, res) => {
   if (!salesEnabled) {
-    return res.status(503).json({
-      error: 'Sales integration disabled (SALES_API_URL / SALES_API_KEY missing)'
-    });
+    return res
+      .status(503)
+      .json({
+        error: 'Sales integration disabled (SALES_API_URL / SALES_API_KEY missing)'
+      });
   }
 
   try {
@@ -388,6 +390,7 @@ app.get('/game/coupons-gallery', async (req, res) => {
     });
 
     if (!data || !Array.isArray(data.cards)) {
+      // respuesta inesperada, devolvemos tal cual por seguridad
       return res.json(data || {});
     }
 
@@ -411,10 +414,9 @@ app.get('/game/coupons-gallery', async (req, res) => {
         return false;
       }
 
-      // 4️⃣ 🎯 REGLA CLAVE: solo cupones segmentados
-      if (!Array.isArray(c.segments) || c.segments.length === 0) {
-        return false;
-      }
+      // 4️⃣ 🔴 cupón individual (clave)
+      // Solo si Ventas lo expone (si no viene, no asumimos nada)
+      if (c.assignedToId != null) return false;
 
       return true;
     });
@@ -429,11 +431,8 @@ app.get('/game/coupons-gallery', async (req, res) => {
       .status(502)
       .json({ error: 'Failed to fetch coupons gallery from sales backend' });
   }
+  v
 });
-
-
-
-
  app.post('/game/direct-claim', async (req, res) => {
   if (!salesEnabled) {
     return res
