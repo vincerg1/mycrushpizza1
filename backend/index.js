@@ -373,29 +373,65 @@ function startServer () {
   app.use(express.json());
 
 
-  app.get('/game/coupons-gallery', async (req, res) => {
-    if (!salesEnabled) {
-      return res
-        .status(503)
-        .json({ error: 'Sales integration disabled (SALES_API_URL / SALES_API_KEY missing)' });
-    }
-
-    try {
-      const url = salesUrl('/api/coupons/gallery');
-
-      const { data } = await getJson(url, {
-        'x-api-key': SALES.key
+app.get('/game/coupons-gallery', async (req, res) => {
+  if (!salesEnabled) {
+    return res
+      .status(503)
+      .json({
+        error: 'Sales integration disabled (SALES_API_URL / SALES_API_KEY missing)'
       });
+  }
 
-      // devolvemos tal cual lo que entrega el backend de ventas
+  try {
+    const url = salesUrl('/api/coupons/gallery');
+
+    const { data } = await getJson(url, {
+      'x-api-key': SALES.key
+    });
+
+    if (!data || !Array.isArray(data.cards)) {
+      // respuesta inesperada, devolvemos tal cual por seguridad
       return res.json(data || {});
-    } catch (err) {
-      console.warn('[game/coupons-gallery] error:', err?.message || err);
-      return res
-        .status(502)
-        .json({ error: 'Failed to fetch coupons gallery from sales backend' });
     }
-  });
+
+    const now = Date.now();
+
+    const filteredCards = data.cards.filter((c) => {
+      // 1️⃣ estado
+      if (c.status && c.status !== 'ACTIVE') return false;
+
+      // 2️⃣ fechas
+      if (c.activeFrom && new Date(c.activeFrom).getTime() > now) return false;
+      if (c.expiresAt && new Date(c.expiresAt).getTime() <= now) return false;
+
+      // 3️⃣ límite de uso
+      if (
+        typeof c.usageLimit === 'number' &&
+        typeof c.usedCount === 'number' &&
+        c.usageLimit > 0 &&
+        c.usedCount >= c.usageLimit
+      ) {
+        return false;
+      }
+
+      // 4️⃣ 🔴 cupón individual (clave)
+      // Solo si Ventas lo expone (si no viene, no asumimos nada)
+      if (c.assignedToId != null) return false;
+
+      return true;
+    });
+
+    return res.json({
+      ...data,
+      cards: filteredCards
+    });
+  } catch (err) {
+    console.warn('[game/coupons-gallery] error:', err?.message || err);
+    return res
+      .status(502)
+      .json({ error: 'Failed to fetch coupons gallery from sales backend' });
+  }
+});
  app.post('/game/direct-claim', async (req, res) => {
   if (!salesEnabled) {
     return res
