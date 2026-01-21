@@ -85,15 +85,6 @@ async function claimDirectCoupon({ phone, name, type, key, hours, campaign }) {
   );
   return data || { ok: false, error: "empty_response" };
 }
-
-/**
- * Estado de bloqueo del juego (para countdown)
- * gameStatus[gameId] = {
- *   lockedUntil: Date | null,
- *   remainingMs: number,
- *   isLocked: boolean
- * }
- */
 async function fetchGameStatusForIds(gameIds) {
   if (!BACKEND_BASE) return {};
 
@@ -160,15 +151,11 @@ async function fetchGameStatusForIds(gameIds) {
 
   return status;
 }
-
-/* ---------------------- Formatting helpers ---------------------- */
-
 function formatMoney(v) {
   const n = Number(v);
   if (!Number.isFinite(n)) return "";
   return `${n.toFixed(2)} €`;
 }
-
 function formatCouponExample(example) {
   if (example == null) return "";
   if (typeof example !== "object") return String(example);
@@ -204,7 +191,6 @@ function formatCouponExample(example) {
 
   return "Coupon";
 }
-
 function mapTypeToTitle(type) {
   switch (type) {
     case "FIXED_PERCENT":
@@ -217,14 +203,12 @@ function mapTypeToTitle(type) {
       return type || "Oferta";
   }
 }
-
 function makeSubtitle(exampleText) {
   if (!exampleText) return "";
   return exampleText.includes("%")
     ? `${exampleText} de descuento`
     : `${exampleText} en tu pedido`;
 }
-
 function classifyBucket(card) {
   const acq = card.acquisition;
   const channel = card.channel;
@@ -238,7 +222,6 @@ function classifyBucket(card) {
   if (acq === "CLAIM" || acq === "DIRECT") return "direct";
   return "direct";
 }
-
 function gameMetaForId(gameId) {
   if (gameId === 1) {
     return {
@@ -254,7 +237,6 @@ function gameMetaForId(gameId) {
   }
   return null;
 }
-
 function formatCountdown(ms) {
   if (!ms || ms <= 0) return null;
   const totalSec = Math.floor(ms / 1000);
@@ -269,9 +251,6 @@ function formatCountdown(ms) {
   }
   return `${pad(minutes)}:${pad(seconds)}`;
 }
-
-/* ---------------------- Normalization ---------------------- */
-
 function normalizeGalleryData(raw) {
   if (!raw) return { groups: [] };
 
@@ -319,8 +298,6 @@ function normalizeGalleryData(raw) {
         displayTitle: mapTypeToTitle(type),
         displaySubtitle,
         displayBadge: isGameBucket ? "PLAY & WIN" : "REWARD",
-
-        // 👇 añadimos el gameId para usarlo al navegar y para el estado
         gameId: c.gameId ?? null,
         visibility: c.visibility ?? "PUBLIC",
         rawCard: c,
@@ -358,9 +335,6 @@ function normalizeGalleryData(raw) {
 
   return { groups: [] };
 }
-
-/* ---------------------- Card component ---------------------- */
-
 function CouponCard({ group, isActive, onSelect, onPrimary, gameStatus }) {
   const {
     displayTitle,
@@ -504,9 +478,6 @@ function CouponCard({ group, isActive, onSelect, onPrimary, gameStatus }) {
     </article>
   );
 }
-
-/* ---------------------- Claim modal ---------------------- */
-
 function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -640,8 +611,6 @@ function ClaimModal({ open, onClose, onSubmit, activeGroup, state }) {
     </div>
   );
 }
-
-/* ---------------------- Main component ---------------------- */
 
 export default function GameCouponsGallery() {
   const [groups, setGroups] = useState([]);
