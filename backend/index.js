@@ -397,9 +397,13 @@ app.get('/game/coupons-gallery', async (req, res) => {
       // 1️⃣ estado
       if (c.status && c.status !== 'ACTIVE') return false;
 
-      // 2️⃣ visibilidad (CLAVE)
-      // solo PUBLIC → RESERVED nunca aparece en galería
-      if (c.visibility && c.visibility !== 'PUBLIC') return false;
+      // 2️⃣ visibilidad (ROBUSTO)
+      const visibility =
+        c.visibility ??
+        c.sample?.visibility ??
+        'PUBLIC';
+
+      if (visibility !== 'PUBLIC') return false;
 
       // 3️⃣ fechas
       if (c.activeFrom && new Date(c.activeFrom).getTime() > now) return false;
@@ -432,6 +436,7 @@ app.get('/game/coupons-gallery', async (req, res) => {
     });
   }
 });
+
 
 
  app.post('/game/direct-claim', async (req, res) => {
