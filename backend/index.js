@@ -397,14 +397,15 @@ app.get('/game/coupons-gallery', async (req, res) => {
       // 1️⃣ estado
       if (c.status && c.status !== 'ACTIVE') return false;
 
-      // 1️⃣➕ visibilidad (NUEVO, SIMPLE)
+      // 2️⃣ visibilidad (CLAVE)
+      // solo PUBLIC → RESERVED nunca aparece en galería
       if (c.visibility && c.visibility !== 'PUBLIC') return false;
 
-      // 2️⃣ fechas
+      // 3️⃣ fechas
       if (c.activeFrom && new Date(c.activeFrom).getTime() > now) return false;
       if (c.expiresAt && new Date(c.expiresAt).getTime() <= now) return false;
 
-      // 3️⃣ límite de uso
+      // 4️⃣ límite de uso
       if (
         typeof c.usageLimit === 'number' &&
         typeof c.usedCount === 'number' &&
@@ -414,7 +415,7 @@ app.get('/game/coupons-gallery', async (req, res) => {
         return false;
       }
 
-      // 4️⃣ cupón individual (se mantiene TAL CUAL porque este endpoint funcionaba)
+      // 5️⃣ cupones asignados a cliente (individuales)
       if (c.assignedToId != null) return false;
 
       return true;
@@ -426,11 +427,12 @@ app.get('/game/coupons-gallery', async (req, res) => {
     });
   } catch (err) {
     console.warn('[game/coupons-gallery] error:', err?.message || err);
-    return res
-      .status(502)
-      .json({ error: 'Failed to fetch coupons gallery from sales backend' });
+    return res.status(502).json({
+      error: 'Failed to fetch coupons gallery from sales backend'
+    });
   }
 });
+
 
  app.post('/game/direct-claim', async (req, res) => {
   if (!salesEnabled) {
