@@ -379,7 +379,8 @@
 .gcg-card--game .gcg-card-example { color: #5b3510; }
 
 .gcg-card-subtitle {
-  margin: 6px 0 0;
+  margin: 6px ;
+  margin-top: 10px;
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.96);
   text-align: center;
