@@ -462,18 +462,25 @@ function CouponCard({ group, isActive, onSelect, onPrimary, gameStatus }) {
           )}
         </div>
 
-        <button
-          type="button"
-          className="gcg-card-cta"
-          disabled={!canInteract}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!canInteract) return;
-            onPrimary();
-          }}
-        >
-          {ctaLabel}
-        </button>
+<button
+  type="button"
+  className="gcg-card-cta"
+  disabled={!canInteract}
+  onClick={(e) => {
+    e.stopPropagation();
+    if (!canInteract) return;
+    onPrimary();
+  }}
+>
+  <span className="gcg-cta-viewport" aria-hidden="true">
+    <span className="gcg-cta-slider">
+      <span className="gcg-cta-word">CLAIM</span>
+      <span className="gcg-cta-word">RECLAMAR</span>
+      <span className="gcg-cta-word">CANXEAR</span>
+      <span className="gcg-cta-word">CLAIM</span>
+    </span>
+  </span>
+</button>
       </footer>
     </article>
   );

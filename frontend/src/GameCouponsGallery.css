@@ -366,8 +366,9 @@
     0 2px 0 rgba(0, 0, 0, 0.8);
 }
 
-.gcg-card-example {
-  margin: 0;
+
+ .gcg-card-example {
+  margin: 10px 0 14px;
   font-size: clamp(3.4rem, 8vw, 5rem); /* 🔥 ya no se desborda */
   font-weight: 900;
   color: #ffeefc;
@@ -379,13 +380,56 @@
 .gcg-card--game .gcg-card-example { color: #5b3510; }
 
 .gcg-card-subtitle {
-  margin: 6px ;
-  margin-top: 10px;
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.96);
+  margin: 6px;
+  margin-top: 50px;
+  font-size: 0.95rem;
+  font-weight: 600;
   text-align: center;
+  letter-spacing: 0.04em;
+
+  color: rgba(255, 255, 255, 0.95);
+
+  position: relative;
+
+  /* glow suave */
+  text-shadow:
+    0 0 6px rgba(255, 255, 255, 0.25),
+    0 0 12px rgba(255, 255, 255, 0.15);
+
+  /* animación */
+  animation: gcg-subtitle-breathe 3.2s ease-in-out infinite;
 }
-.gcg-card--game .gcg-card-subtitle { color: rgba(40, 25, 5, 0.9); }
+@keyframes gcg-subtitle-breathe {
+  0% {
+    transform: translateY(0);
+    opacity: 0.85;
+    text-shadow:
+      0 0 4px rgba(255, 255, 255, 0.2),
+      0 0 8px rgba(255, 255, 255, 0.1);
+  }
+
+  50% {
+    transform: translateY(-2px);
+    opacity: 1;
+    text-shadow:
+      0 0 10px rgba(255, 255, 255, 0.4),
+      0 0 18px rgba(255, 255, 255, 0.25);
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 0.85;
+    text-shadow:
+      0 0 4px rgba(255, 255, 255, 0.2),
+      0 0 8px rgba(255, 255, 255, 0.1);
+  }
+}
+.gcg-card--active .gcg-card-subtitle {
+  animation-duration: 2.2s;
+  text-shadow:
+    0 0 12px rgba(255, 255, 255, 0.6),
+    0 0 22px rgba(255, 255, 255, 0.4);
+}
 
 /* Footer */
 .gcg-card-footer {
@@ -761,6 +805,65 @@
     color: rgba(65, 40, 10, 0.9);
   }
 }
+
+/* ===== CTA ANIMADO VERTICAL ===== */
+
+.gcg-card-cta {
+  min-width: 148px;
+  height: 42px;
+  padding: 0 18px;
+  overflow: hidden;
+}
+
+.gcg-cta-viewport {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 16px;
+  overflow: hidden;
+}
+
+.gcg-cta-slider {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+  animation: gcg-cta-rotate 6s cubic-bezier(.65, 0, .35, 1) infinite;
+}
+
+.gcg-cta-word {
+  display: block;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* CLAIM -> RECLAMAR -> CANXEAR -> CLAIM */
+@keyframes gcg-cta-rotate {
+  0%,
+  20% {
+    transform: translateY(0);
+  }
+
+  28%,
+  48% {
+    transform: translateY(-16px);
+  }
+
+  56%,
+  76% {
+    transform: translateY(-32px);
+  }
+
+  84%,
+  100% {
+    transform: translateY(-48px);
+  }
+}
+
+
+
+
 
 /* ===== Desktop polish ===== */
 @media (min-width: 900px) {
